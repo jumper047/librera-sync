@@ -4,7 +4,7 @@
 
 ;; Author: Dmitriy Pshonko <jumper047@gmail.com>
 ;; URL: https://github.com/jumper047/librera-sync
-;; Keywords: sync convenience
+;; Keywords: sync ebook epub pdf
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "26.0"))
 
@@ -42,28 +42,35 @@
   )
 
 (defcustom librera-sync-directory nil
-  "Path to Librera folder"
+  "Path to Librera folder."
   :type '(directory)
   :group 'librera-sync)
 
 (defcustom librera-sync-device-name (system-name)
-  "Device name (should be unique across Librera instances)"
+  "Device name (should be unique across Librera instances)."
   :type '(string)
   :group 'librera-sync)
 
 (defcustom librera-sync-interval 60
-  "Sync interval in seconds"
+  "Sync interval in seconds."
   :type '(number)
   :group 'librera-sync)
 
+(defcustom librera-sync-update-method 'inotify
+  "Method to check progress update."
+  :group 'librera-sync
+  :type '(choice
+	  (const :tag "Watching file changes with inotify" inotify)
+	  (const :tag "Check updates by timer" timer)))
+
 (defvar librera-sync-timer nil
-  "Timer for interval progress checking")
+  "Timer for interval progress checking.")
 
 (defvar librera-sync-watchers '()
-  "List of watch items from inotify")
+  "List of watch items from inotify.")
 
 (defvar librera-sync-tracked-filenames '()
-  "List of files currently opened")
+  "List of files currently opened.")
 
 (defun librera-sync--device-names ()
   "Get list of available device names."
@@ -241,7 +248,7 @@ WATCHDATA contains some info about event"
 			'librera-sync--schedule-update-all)))
 
 (defun librera-sync--stop-timer ()
-  "Cancel Librera update timer"
+  "Cancel Librera update timer."
   (cancel-timer librera-sync-timer))
 
 
@@ -280,11 +287,10 @@ WATCHDATA contains some info about event"
 	(delete (buffer-name) librera-sync-tracked-filenames)))
 
 ;;;###autoload
-(defun librera-sync-load (num-arg)
-  "Load latest position for current buffer from Librera.
-NUM-ARG means nothing"
+(defun librera-sync-load ()
+  "Load latest position for current buffer from Librera."
 
-  (interactive "p")
+  (interactive)
   (let ((pos-params (librera-sync--read-pos-for (buffer-name))))
     (if pos-params
 	(let ((pos (car pos-params))
@@ -297,10 +303,9 @@ NUM-ARG means nothing"
       (message "There is no position for this document"))))
 
 ;;;###autoload
-(defun librera-sync-load-from-device (num-arg)
-  "Choose device to load position from.
-NUM-ARG means nothing"
-  (interactive "p")
+(defun librera-sync-load-from-device ()
+  "Choose device to load position from."
+  (interactive)
   (let* ((prompt (format "Load progress for %S from: " (buffer-name)))
 	 (candidates (delete librera-sync-device-name (librera-sync--device-names)))
 	 (devname (completing-read prompt candidates nil 't))
@@ -322,18 +327,20 @@ NUM-ARG means nothing"
 		 (if (derived-mode-p 'pdf-view-mode)
 		     (librera-sync-track-current-buffer))))
 
-	     (librera-sync--start-watching)
+	     (if (eq librera-sync-update-method 'inotify)
+		 (librera-sync--start-watching)
+	       (librera-sync--start-timer))
 	     (add-hook 'kill-buffer-hook 'librera-sync-untrack-current-buffer)
 	     (add-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer)
 	     (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save)
 	     (librera-sync--schedule-update-all))
 
-    (librera-sync--stop-watching)
+    (if (eq librera-sync-update-method 'inotify)
+	(librera-sync--stop-watching)
+      (librera-sync--stop-timer))
     (remove-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer)
     (remove-hook 'pdf-view-after-change-page-hook 'librera-sync-save)
-    (setq librera-sync-tracked-filenames '())
-    )
-  )
+    (setq librera-sync-tracked-filenames '())))
 
 (provide 'librera-sync)
 ;;; librera-sync.el ends here
