@@ -261,7 +261,7 @@ WATCHDATA contains some info about event"
 
 (defun librera-sync--current-pos-pdf-view ()
   "Get current position in pdf-view buffer."
-  (/ (float (pdf-view-current-page)) (pdf-cache-number-of-pages)))
+  (/ (pdf-view-current-page) (float (pdf-cache-number-of-pages))))
 
 
 (defun librera-sync--current-pos ()
