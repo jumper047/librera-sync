@@ -188,7 +188,8 @@ Returns (position time devname)"
     (gethash docname (librera-sync--read-all-pos))))
 
 (defun librera-sync--schedule-update-all ()
-  "Schedule update for all buffers with new positions."
+  "Schedule update for all buffers with new positions.
+Function checks new positions for all buffers from other Librera instances."
   (let* ((positions (librera-sync--read-all-pos)))
     (dolist (filename librera-sync-tracked-filenames)
       (when-let* ((filepos (gethash filename positions))
