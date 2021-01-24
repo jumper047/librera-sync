@@ -325,8 +325,9 @@ WATCHDATA contains some info about event"
   (if librera-sync-global-mode
       (progn (dolist (buf (buffer-list))
 	       (with-current-buffer buf
-		 (if (derived-mode-p 'pdf-view-mode)
-		     (librera-sync-track-current-buffer))))
+		 (when (derived-mode-p 'pdf-view-mode)
+		   (librera-sync-load)
+		   (librera-sync-track-current-buffer))))
 
 	     (if (eq librera-sync-update-method 'inotify)
 		 (librera-sync--start-watching)
