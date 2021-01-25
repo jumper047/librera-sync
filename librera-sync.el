@@ -72,6 +72,11 @@
 (defvar librera-sync-tracked-filenames '()
   "List of files currently opened.")
 
+;; PDF-tools
+(declare-function pdf-view-goto-page "pdf-view" (page))
+(declare-function pdf-cache-number-of-pages "pdf-cache" ())
+
+
 (defun librera-sync--device-names ()
   "Get list of available device names."
   (unless librera-sync-directory
@@ -200,16 +205,19 @@ Function checks new positions for all buffers from other Librera instances."
 		  (notsame (not (string-equal sname librera-sync-device-name))))
 	(with-current-buffer filename
 	  (librera-sync--schedule-update-cur-buffer pos sname)
-	  ;; Kinda hacky - check if current buffer active and update it immediately
-	  (if (eq (current-buffer) (window-buffer (selected-window)))
-	      (librera-sync--update-cur-buffer)))))))
+	  )))))
 
 (defun librera-sync--schedule-update-cur-buffer (pos sname)
   "Schedule set current buffer to position POS.
 resource name is SNAME"
+  (unless (member (buffer-name) librera-sync-tracked-filenames)
+    (error "Can't schedule update of non tracked buffer"))
   (setq-local librera-sync--new-position pos)
   (setq-local librera-sync--update-source sname)
-  (add-hook 'post-command-hook 'librera-sync--update-cur-buffer 0 't))
+  ;; If buffer is active update immediately else schedule
+  (if (eq (current-buffer) (window-buffer (selected-window)))
+      (librera-sync--update-cur-buffer)
+    (add-hook 'post-command-hook 'librera-sync--update-cur-buffer 0 't)))
 
 (defun librera-sync--update-cur-buffer ()
   "Update current buffer if it has deferred position."
@@ -269,7 +277,8 @@ WATCHDATA contains some info about event"
 
 (defun librera-sync--current-pos-pdf-view ()
   "Get current position in pdf-view buffer."
-  (/ (pdf-view-current-page) (float (pdf-cache-number-of-pages))))
+  (/ (eval `(pdf-view-current-page))
+     (float (pdf-cache-number-of-pages))))
 
 
 (defun librera-sync--current-pos ()
