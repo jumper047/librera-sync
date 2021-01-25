@@ -139,10 +139,11 @@
 	(insert (json-encode app-progress))))))
 
 (defun librera-sync-save ()
-  "Save current position to Librera profile."
-
+  "Save current position to Librera profile.
+If buffer has position to restore, do nothing"
+  (unless librera-sync--new-position
   (librera-sync--write-pos
-   (librera-sync--current-pos) (buffer-name))
+   (librera-sync--current-pos) (buffer-name)))
   )
 
 (defun librera-sync--read-progress-from (devname)
@@ -178,7 +179,8 @@ Returns hash table with list '(POSITION TIME FILE)"
 (defun librera-sync--read-pos-for (docname &optional devname)
   "Get position for certain DOCNAME.
 If optional DEVNAME set returns position that device
-Returns (position time devname)"
+Returns (position time devname)
+Docname must be already added to tracked buffers list"
   (if devname
       (when-let* ((progress-js (librera-sync--read-progress-from devname))
 		  (doc-params (gethash docname progress-js))
@@ -187,7 +189,7 @@ Returns (position time devname)"
 	(list position time devname))
     (gethash docname (librera-sync--read-all-pos))))
 
-(defun librera-sync--schedule-update-all ()
+(defun librera-sync--schedule-update-all-tracked ()
   "Schedule update for all buffers with new positions.
 Function checks new positions for all buffers from other Librera instances."
   (let* ((positions (librera-sync--read-all-pos)))
@@ -197,12 +199,17 @@ Function checks new positions for all buffers from other Librera instances."
 		  (sname (car (nthcdr 2 filepos)))
 		  (notsame (not (string-equal sname librera-sync-device-name))))
 	(with-current-buffer filename
-	  (setq-local librera-sync--new-position pos)
-	  (setq-local librera-sync--update-source sname)
-	  (add-hook 'post-command-hook 'librera-sync--update-cur-buffer 0 't)
+	  (librera-sync--schedule-update-cur-buffer pos sname)
 	  ;; Kinda hacky - check if current buffer active and update it immediately
 	  (if (eq (current-buffer) (window-buffer (selected-window)))
 	      (librera-sync--update-cur-buffer)))))))
+
+(defun librera-sync--schedule-update-cur-buffer (pos sname)
+  "Schedule set current buffer to position POS.
+resource name is SNAME"
+  (setq-local librera-sync--new-position pos)
+  (setq-local librera-sync--update-source sname)
+  (add-hook 'post-command-hook 'librera-sync--update-cur-buffer 0 't))
 
 (defun librera-sync--update-cur-buffer ()
   "Update current buffer if it has deferred position."
@@ -236,7 +243,7 @@ Function checks new positions for all buffers from other Librera instances."
 WATCHDATA contains some info about event"
   (when (and (string-equal "renamed" (car (cdr watchdata)))
 	     (string-equal "app-Progress.json" (f-filename (car (nthcdr 3 watchdata)))))
-    (librera-sync--schedule-update-all)))
+    (librera-sync--schedule-update-all-tracked)))
 
 
 ;; Timer functions
@@ -246,7 +253,7 @@ WATCHDATA contains some info about event"
   (setq librera-sync-timer
 	(run-with-timer librera-sync-interval
 			librera-sync-interval
-			'librera-sync--schedule-update-all)))
+			'librera-sync--schedule-update-all-tracked)))
 
 (defun librera-sync--stop-timer ()
   "Cancel Librera update timer."
@@ -280,7 +287,13 @@ WATCHDATA contains some info about event"
   (push (buffer-name) librera-sync-tracked-filenames)
   (setq-local librera-sync--new-position nil)
   (setq-local librera-sync--update-source nil)
-  )
+
+  ;; Trying to restore position
+  (when-let* ((pos-params (librera-sync--read-pos-for (buffer-name)))
+	      (position (car pos-params))
+	      (source (car (nthcdr 2 pos-params))))
+    (librera-sync--schedule-update-cur-buffer position source)
+  ))
 
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
@@ -325,17 +338,15 @@ WATCHDATA contains some info about event"
   (if librera-sync-global-mode
       (progn (dolist (buf (buffer-list))
 	       (with-current-buffer buf
-		 (when (derived-mode-p 'pdf-view-mode)
-		   (librera-sync-load)
-		   (librera-sync-track-current-buffer))))
-
+		 (if (derived-mode-p 'pdf-view-mode)
+		     (librera-sync-track-current-buffer)
+		   (message "wrong buff %S" buf))))
 	     (if (eq librera-sync-update-method 'inotify)
 		 (librera-sync--start-watching)
 	       (librera-sync--start-timer))
 	     (add-hook 'kill-buffer-hook 'librera-sync-untrack-current-buffer)
 	     (add-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer)
-	     (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save)
-	     (librera-sync--schedule-update-all))
+	     (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save))
 
     (if (eq librera-sync-update-method 'inotify)
 	(librera-sync--stop-watching)
