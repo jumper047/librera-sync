@@ -72,6 +72,9 @@
 (defvar librera-sync-tracked-filenames '()
   "List of files currently opened.")
 
+(defvar librera-sync-supported-modes '('pdf-view-mode)
+  "Major modes supported by librera.")
+
 ;; PDF-tools
 (declare-function pdf-view-goto-page "pdf-view" (page))
 (declare-function pdf-cache-number-of-pages "pdf-cache" ())
@@ -237,7 +240,7 @@ resource name is SNAME"
     (unless (string-equal name librera-sync-device-name)
       (push (file-notify-add-watch (librera-sync--device-dir name) '(change)
 				   'librera-sync--watch-callback)
-	    librera-sync-watchers))))
+	    librera-sync-watchebrs))))
 
 (defun librera-sync--stop-watching ()
   "Disable watchers."
@@ -265,7 +268,8 @@ WATCHDATA contains some info about event"
 
 (defun librera-sync--stop-timer ()
   "Cancel Librera update timer."
-  (cancel-timer librera-sync-timer))
+  (cancel-timer librera-sync-timer)
+  (setq librera-sync-timer nil))
 
 
 ;; PDF-tools
@@ -293,6 +297,8 @@ WATCHDATA contains some info about event"
 
 (defun librera-sync-track-current-buffer ()
   "Save current buffer values and update if necessary."
+  (if (member (buffer-name) librera-sync-tracked-filenames)
+      (error (format "Buffer %S already tracked" (buffer-name))))
   (push (buffer-name) librera-sync-tracked-filenames)
   (setq-local librera-sync--new-position nil)
   (setq-local librera-sync--update-source nil)
@@ -347,22 +353,55 @@ WATCHDATA contains some info about event"
   (if librera-sync-global-mode
       (progn (dolist (buf (buffer-list))
 	       (with-current-buffer buf
-		 (if (derived-mode-p 'pdf-view-mode)
-		     (librera-sync-track-current-buffer)
-		   (message "wrong buff %S" buf))))
+		 (if (member major-mode librera-sync-supported-modes)
+		     (librera-sync-track-current-buffer))))
 	     (if (eq librera-sync-update-method 'inotify)
 		 (librera-sync--start-watching)
 	       (librera-sync--start-timer))
 	     (add-hook 'kill-buffer-hook 'librera-sync-untrack-current-buffer)
+	     
 	     (add-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer)
 	     (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save))
 
     (if (eq librera-sync-update-method 'inotify)
 	(librera-sync--stop-watching)
       (librera-sync--stop-timer))
+
     (remove-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer)
     (remove-hook 'pdf-view-after-change-page-hook 'librera-sync-save)
+
     (setq librera-sync-tracked-filenames '())))
+
+;;;###autoload
+(define-minor-mode librera-sync-mode
+  "Sync current buffer with Librera Reader"
+  :lighter " LS"
+  :group 'librera-sync
+  (if librera-sync-mode
+      (progn (if librera-sync-major-mode
+		 (error "Mode librera-sync-global-mode already active"))
+	     (if (member major-mode librera-sync-supported-modes)
+		     (librera-sync-track-current-buffer))
+	     (cond ((and (eq librera-sync-update-method 'inotify)
+			 (not librera-sync-watchers))
+		    (librera-sync--start-watching))
+		   ((and (eq librera-sync-update-method 'timer)
+			 (not librera-sync-timer))
+		    (librera-sync--start-timer)))
+	     (add-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer 0 't)
+	     (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save 0 't))
+
+    (librera-sync-untrack-current-buffer)
+    (cond ((and (eq librera-sync-update-method 'inotify)
+		(not librera-sync-tracked-filenames))
+	   (librera-sync--stop-watching))
+	  ((and (eq librera-sync-update-method 'timer)
+		(not librera-sync-tracked-filenames))
+	   (librera-sync--stop-timer)))
+
+    (remove-hook 'pdf-view-mode-hook 'librera-sync-track-current-buffer 't)
+    (remove-hook 'pdf-view-after-change-page-hook 'librera-sync-save 't)
+    ))
 
 (provide 'librera-sync)
 ;;; librera-sync.el ends here
