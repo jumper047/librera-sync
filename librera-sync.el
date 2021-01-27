@@ -64,6 +64,17 @@
 	  (const :tag "Watching file changes with inotify" inotify)
 	  (const :tag "Check updates by timer" timer)))
 
+(defcustom librera-sync-blacklist '()
+  "Files from that list will not be synked.
+Ignored if whitelist is not empty"
+  :group 'librera-sync
+  :type '(repeat string))
+
+(defcustom librera-sync-whitelist '()
+  "Only files from that list will not be synked."
+  :group 'librera-sync
+  :type '(repeat string))
+
 (defvar librera-sync-timer nil
   "Timer for interval progress checking.")
 
@@ -362,10 +373,15 @@ ARGS will be passed to function"
   (if librera-sync-global-mode
       (progn (dolist (buf (buffer-list))
 	       (with-current-buffer buf
-		 (if (bound-and-true-p librera-sync-mode)
-		     (librera-sync-mode -1))
-		 (if (member major-mode librera-sync-supported-modes)
-		     (librera-sync-track-current-buffer))))
+		 (when (and (or (not librera-sync-blacklist)
+				(not (member (buffer-name) librera-sync-blacklist)))
+			    (or (not librera-sync-whitelist)
+				(member (buffer-name) librera-sync-whitelist)))
+		   (if (bound-and-true-p librera-sync-mode)
+		       (librera-sync-mode -1))
+		   (if (member major-mode librera-sync-supported-modes)
+		       (librera-sync-track-current-buffer)))
+		 ))
 	     (dolist (mode librera-sync-supported-modes)
 	       (add-hook (intern (format "%s-hook" mode))
 			 'librera-sync-track-current-buffer 0 't)
@@ -394,10 +410,19 @@ ARGS will be passed to function"
   "Sync current buffer with Librera Reader"
   :lighter " LS"
   :group 'librera-sync
-  (if (bound-and-true-p librera-sync-global-mode)
-      (error "Mode librera-sync-global-mode already active"))
+  (when (bound-and-true-p librera-sync-global-mode)
+    (setq-local librera-sync-mode nil)
+    (message "Mode librera-sync-global-mode already active"))
   (unless (member major-mode librera-sync-supported-modes)
-    (error "Major mode not supported"))
+    (setq-local librera-sync-mode nil)
+    (message "Major mode not supported"))
+  (when (member (buffer-name) librera-sync-blacklist)
+    (setq-local librera-sync-mode nil)
+    (error "Current buffer in black list"))
+  (when (and librera-sync-whitelist
+	    (not (member (buffer-name) librera-sync-whitelist)))
+    (setq-local librera-sync-mode nil)
+    (error "Current buffer in black list"))
   (if librera-sync-mode
       (progn (when (member major-mode librera-sync-supported-modes)
 	       (librera-sync-track-current-buffer)
