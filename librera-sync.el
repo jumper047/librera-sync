@@ -278,8 +278,9 @@ WATCHDATA contains some info about event"
 
 (defun librera-sync--stop-timer ()
   "Cancel Librera update timer."
+  (when librera-sync-timer
   (cancel-timer librera-sync-timer)
-  (setq librera-sync-timer nil))
+  (setq librera-sync-timer nil)))
 
 
 (defun librera-sync--major-mode-command (command &rest args)
@@ -329,11 +330,9 @@ ARGS will be passed to function"
 
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
-  (if (member (buffer-name) librera-sync-tracked-filenames)
-      (message (format "Buffer %S not tracked" (buffer-name)))
-    (setq librera-sync-tracked-filenames
-	  (delete (buffer-name) librera-sync-tracked-filenames))
-    (librera-sync--clean-major-mode)))
+  (setq librera-sync-tracked-filenames
+	(delete (buffer-name) librera-sync-tracked-filenames))
+  (librera-sync--clean-major-mode))
 
 ;;;###autoload
 (defun librera-sync-load ()
@@ -365,75 +364,20 @@ ARGS will be passed to function"
   )))
 
 ;;;###autoload
-(define-minor-mode librera-sync-global-mode
-  "Sync buffer states with Librera Reader"
-  :global t
-  :lighter " LS"
-  :group 'librera-sync
-  (if librera-sync-global-mode
-      (progn (dolist (buf (buffer-list))
-	       (with-current-buffer buf
-		 (when (and (or (not librera-sync-blacklist)
-				(not (member (buffer-name) librera-sync-blacklist)))
-			    (or (not librera-sync-whitelist)
-				(member (buffer-name) librera-sync-whitelist)))
-		   (if (bound-and-true-p librera-sync-mode)
-		       (librera-sync-mode -1))
-		   (if (member major-mode librera-sync-supported-modes)
-		       (librera-sync-track-current-buffer)))
-		 ))
-	     (dolist (mode librera-sync-supported-modes)
-	       (add-hook (intern (format "%s-hook" mode))
-			 'librera-sync-track-current-buffer 0 't)
-	       )
-	     (if (eq librera-sync-update-method 'inotify)
-		 (librera-sync--start-watching)
-	       (librera-sync--start-timer))
-	     )
-
-    (if (eq librera-sync-update-method 'inotify)
-	(librera-sync--stop-watching)
-      (librera-sync--stop-timer)
-      )
-    (dolist (mode librera-sync-supported-modes)
-      (add-hook (intern (format "%s-hook" mode))
-		'librera-sync-track-current-buffer 0 't)
-      )
-    (dolist (buf librera-sync-tracked-filenames)
-      (with-current-buffer buf
-	(librera-sync-untrack-current-buffer))
-      )
-    (setq librera-sync-tracked-filenames '())))
-
-;;;###autoload
 (define-minor-mode librera-sync-mode
   "Sync current buffer with Librera Reader"
   :lighter " LS"
   :group 'librera-sync
-  (when (bound-and-true-p librera-sync-global-mode)
-    (setq-local librera-sync-mode nil)
-    (message "Mode librera-sync-global-mode already active"))
-  (unless (member major-mode librera-sync-supported-modes)
-    (setq-local librera-sync-mode nil)
-    (message "Major mode not supported"))
-  (when (member (buffer-name) librera-sync-blacklist)
-    (setq-local librera-sync-mode nil)
-    (error "Current buffer in black list"))
-  (when (and librera-sync-whitelist
-	    (not (member (buffer-name) librera-sync-whitelist)))
-    (setq-local librera-sync-mode nil)
-    (error "Current buffer in black list"))
   (if librera-sync-mode
-      (progn (when (member major-mode librera-sync-supported-modes)
-	       (librera-sync-track-current-buffer)
-	       (cond ((and (eq librera-sync-update-method 'inotify)
-			   (not librera-sync-watchers))
-		      (librera-sync--start-watching))
-		     ((and (eq librera-sync-update-method 'timer)
-			   (not librera-sync-timer))
-		      (librera-sync--start-timer)))
-	       (add-hook 'kill-buffer-hook
-			  #'(lambda () (librera-sync-mode -1)) -100 't)))
+      (progn (librera-sync-track-current-buffer)
+	     (cond ((and (eq librera-sync-update-method 'inotify)
+			 (not librera-sync-watchers))
+		    (librera-sync--start-watching)
+		   ((and (eq librera-sync-update-method 'timer)
+			 (not librera-sync-timer))
+		    (librera-sync--start-timer)))
+	     (add-hook 'kill-buffer-hook
+		       #'(lambda () (librera-sync-mode -1)) -100 't))
 
     (librera-sync-untrack-current-buffer)
     (cond ((and (eq librera-sync-update-method 'inotify)
@@ -441,9 +385,23 @@ ARGS will be passed to function"
 	   (librera-sync--stop-watching))
 	  ((and (eq librera-sync-update-method 'timer)
 		(not librera-sync-tracked-filenames))
-	   (librera-sync--stop-timer)))
-    (librera-sync--clean-major-mode)
-    ))
+	   (librera-sync--stop-timer)))))
+
+;;;###autoload
+(defun librera-sync--global-turn-on ()
+  "Enable librera-sync mode in buffer if major mode supported."
+  (when (and (memq major-mode librera-sync-supported-modes)
+	     (cond (librera-sync-whitelist
+		    (member (buffer-name) librera-sync-whitelist))
+		   (librera-sync-blacklist
+		    (not (member (buffer-name) librera-sync-blacklist)))
+		   (t t)))
+    (librera-sync-mode +1)))
+
+;;;###autoload
+(define-globalized-minor-mode global-librera-sync-mode librera-sync-mode
+  librera-sync--global-turn-on)
 
 (provide 'librera-sync)
 ;;; librera-sync.el ends here
+
