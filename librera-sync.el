@@ -372,7 +372,7 @@ ARGS will be passed to function"
       (progn (librera-sync-track-current-buffer)
 	     (cond ((and (eq librera-sync-update-method 'inotify)
 			 (not librera-sync-watchers))
-		    (librera-sync--start-watching)
+		    (librera-sync--start-watching))
 		   ((and (eq librera-sync-update-method 'timer)
 			 (not librera-sync-timer))
 		    (librera-sync--start-timer)))
