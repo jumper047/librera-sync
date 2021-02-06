@@ -313,18 +313,18 @@ ARGS will be passed to function"
   "Save current buffer values and update if necessary."
   (if (member (buffer-name) librera-sync-tracked-filenames)
       (message (format "Buffer %S already tracked" (buffer-name)))
+    (librera-sync--prepare-major-mode)
     (push (buffer-name) librera-sync-tracked-filenames)
     (setq-local librera-sync--new-position nil)
     (setq-local librera-sync--update-source nil)
-
     ;; Trying to restore position
     (when-let* ((pos-params (librera-sync--read-pos-for (buffer-name)))
 		(position (car pos-params))
 		(source (car (nthcdr 2 pos-params))))
       (librera-sync--schedule-update-cur-buffer position source)
       )
-    (librera-sync--prepare-major-mode)
-    (add-hook 'kill-buffer-hook 'librera-sync-untrack-current-buffer 't)
+    (add-hook 'kill-buffer-hook
+	      #'(lambda () (librera-sync-mode -1)) -100 't)
     )
   )
 
@@ -369,16 +369,13 @@ ARGS will be passed to function"
   :lighter " LS"
   :group 'librera-sync
   (if librera-sync-mode
-      (progn (librera-sync-track-current-buffer)
-	     (cond ((and (eq librera-sync-update-method 'inotify)
+      (progn (cond ((and (eq librera-sync-update-method 'inotify)
 			 (not librera-sync-watchers))
 		    (librera-sync--start-watching))
 		   ((and (eq librera-sync-update-method 'timer)
 			 (not librera-sync-timer))
 		    (librera-sync--start-timer)))
-	     (add-hook 'kill-buffer-hook
-		       #'(lambda () (librera-sync-mode -1)) -100 't))
-
+	     (librera-sync-track-current-buffer))
     (librera-sync-untrack-current-buffer)
     (cond ((and (eq librera-sync-update-method 'inotify)
 		(not librera-sync-tracked-filenames))
