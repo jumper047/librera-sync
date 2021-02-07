@@ -1,3 +1,6 @@
+(require 'dash)
+(require 'f)
+
 (defvar librera-sync-supported-modes '(pdf-view-mode)
   "Major modes supported by librera.")
 
@@ -28,4 +31,9 @@
   (/ (eval `(pdf-view-current-page))
      (float (pdf-cache-number-of-pages))))
 
+(defun librera-sync--pdf-view-book-name ()
+  "Get current book name."
+  (f-filename (buffer-file-name))
+  )
+ 
 (provide 'librera-sync-modes)

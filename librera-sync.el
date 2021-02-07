@@ -161,7 +161,7 @@ Ignored if whitelist is not empty"
 If buffer has position to restore, do nothing"
   (unless librera-sync--new-position
   (librera-sync--write-pos
-   (librera-sync--current-pos) (buffer-name)))
+   (librera-sync--current-pos) (librera-sync--book-name)))
   )
 
 (defun librera-sync--read-progress-from (devname)
@@ -223,7 +223,7 @@ Function checks new positions for all buffers from other Librera instances."
 (defun librera-sync--schedule-update-cur-buffer (pos sname)
   "Schedule set current buffer to position POS.
 resource name is SNAME"
-  (unless (member (buffer-name) librera-sync-tracked-filenames)
+  (unless (member (librera-sync--book-name) librera-sync-tracked-filenames)
     (error "Can't schedule update of non tracked buffer"))
   (setq-local librera-sync--new-position pos)
   (setq-local librera-sync--update-source sname)
@@ -309,16 +309,20 @@ ARGS will be passed to function"
   "Set POSITION in current buffer."
   (librera-sync--major-mode-command "set-pos" position))
 
+(defun librera-sync--book-name ()
+  "Returns book name used in librera config"
+  (librera-sync--major-mode-command "book-name"))
+
 (defun librera-sync-track-current-buffer ()
   "Save current buffer values and update if necessary."
-  (if (member (buffer-name) librera-sync-tracked-filenames)
-      (message (format "Buffer %S already tracked" (buffer-name)))
+  (if (member (librera-sync--book-name) librera-sync-tracked-filenames)
+      (message (format "Buffer %S already tracked" (librera-sync--book-name)))
     (librera-sync--prepare-major-mode)
-    (push (buffer-name) librera-sync-tracked-filenames)
+    (push (librera-sync--book-name) librera-sync-tracked-filenames)
     (setq-local librera-sync--new-position nil)
     (setq-local librera-sync--update-source nil)
     ;; Trying to restore position
-    (when-let* ((pos-params (librera-sync--read-pos-for (buffer-name)))
+    (when-let* ((pos-params (librera-sync--read-pos-for (librera-sync--book-name)))
 		(position (car pos-params))
 		(source (car (nthcdr 2 pos-params))))
       (librera-sync--schedule-update-cur-buffer position source)
@@ -331,7 +335,7 @@ ARGS will be passed to function"
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
   (setq librera-sync-tracked-filenames
-	(delete (buffer-name) librera-sync-tracked-filenames))
+	(delete (librera-sync--book-name) librera-sync-tracked-filenames))
   (librera-sync--clean-major-mode))
 
 ;;;###autoload
@@ -339,7 +343,7 @@ ARGS will be passed to function"
   "Load latest position for current buffer from Librera."
 
   (interactive)
-  (let ((pos-params (librera-sync--read-pos-for (buffer-name))))
+  (let ((pos-params (librera-sync--read-pos-for (librera-sync--book-name))))
     (if pos-params
 	(let ((pos (car pos-params))
 	      (time (car (cdr pos-params)))
@@ -354,13 +358,13 @@ ARGS will be passed to function"
 (defun librera-sync-load-from-device ()
   "Choose device to load position from."
   (interactive)
-  (let* ((prompt (format "Load progress for %S from: " (buffer-name)))
+  (let* ((prompt (format "Load progress for %S from: " (librera-sync--book-name)))
 	 (candidates (delete librera-sync-device-name (librera-sync--device-names)))
 	 (devname (completing-read prompt candidates nil 't))
-	 (pos-params (librera-sync--read-pos-for (buffer-name) devname)))
+	 (pos-params (librera-sync--read-pos-for (librera-sync--book-name) devname)))
     (if pos-params
 	(librera-sync--set-pos (car pos-params))
-      (message "There is no progress for %S at this device" (buffer-name))
+      (message "There is no progress for %S at this device" (librera-sync--book-name))
   )))
 
 ;;;###autoload
@@ -389,9 +393,9 @@ ARGS will be passed to function"
   "Enable librera-sync mode in buffer if major mode supported."
   (when (and (memq major-mode librera-sync-supported-modes)
 	     (cond (librera-sync-whitelist
-		    (member (buffer-name) librera-sync-whitelist))
+		    (member (librera-sync--book-name) librera-sync-whitelist))
 		   (librera-sync-blacklist
-		    (not (member (buffer-name) librera-sync-blacklist)))
+		    (not (member (librera-sync--book-name) librera-sync-blacklist)))
 		   (t t)))
     (librera-sync-mode +1)))
 
