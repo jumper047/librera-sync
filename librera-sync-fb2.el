@@ -34,11 +34,13 @@ Also includes suffix if needed (cite and stanza in fact has
 	(last-point nil)
 	(tag-changed 'nil)
 	(new-line 'nil)
+	(first-char 'nil)
 	(max-lines librera-sync--fb2-mode-max-lines)
 	)
     (while (and (char-after)
 		(< curr-lines max-lines))
-      (setq new-line 't)
+      (setq new-line 't
+	    first-char 't)
       (while (and (char-after)
 		  (< curr-chars librera-sync--fb2-mode-max-chars))
 	(setq tag (get-text-property (point) 'fb2-tag)
@@ -63,8 +65,7 @@ Also includes suffix if needed (cite and stanza in fact has
 	      (setq max-lines (+ max-lines (alist-get tag librera-sync--fb2-mode-height-coeff 1)))
 	    )
  	  ;; First char in virtual line - check if we need to add some offset
-	  (when (and (equal curr-chars 0)
-		     (equal curr-word-chars 0))
+	  (when first-char
 	    (if (equal (char-before) 10);newline
 		;; If first char in paragraph, add special offset
       		(setq curr-chars (alist-get tag librera-sync--fb2-mode-line-prefix 0))
@@ -91,7 +92,7 @@ Also includes suffix if needed (cite and stanza in fact has
 					;check both before and after, but I don't know good way to jump
 					;to next-after symbol. This check must be enough
 		 ;; Add space if this is not first word
- 		 (if (> curr-chars 0)
+ 		 (if (not new-line)
 		     (setq curr-chars (+ (alist-get curr-tag librera-sync--fb2-mode-length-coeff 1)
 					     curr-chars)))
 		 ;; Try to add word to current string
@@ -102,13 +103,15 @@ Also includes suffix if needed (cite and stanza in fact has
 		 (if (<= curr-chars librera-sync--fb2-mode-max-chars)
 		     (setq curr-word-chars 0
 			   last-point (point)))
+		 ;; At least one word in line - set new-line flat to nil
+		 (setq new-line nil)
 		 ;; (if (not (member (char-before) '(10 32))) ;let's hope previous char was part of
 		 ;; 			;the word
 		 ;;     (setq last-point (point)))
 		 )
 		(t
 		 (setq curr-word-chars (1+ curr-word-chars))))
-	  (setq new-line nil)
+	  (setq first-char 'nil)
 	  (forward-char)
 	  )
 	)
