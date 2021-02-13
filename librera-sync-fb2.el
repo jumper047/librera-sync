@@ -1,16 +1,16 @@
 (defvar librera-sync--fb2-mode-length-coeff '((title . 1.4)))
 
-(defvar librera-sync--fb2-mode-height-coeff '((title . 1.4)))
+(defvar librera-sync--fb2-mode-height-coeff '((title . 1.375)))
 
 (defvar librera-sync--fb2-mode-line-prefix '((text . 2)
 					     (cite . 7)
-					     (stanza . 6))
+					     (stanza . 5))
   "Number of symbols to skip at first string.
 Also includes suffix if needed (cite and stanza in fact has
 3 symbols prefix and 3 symbols suffix).")
 
-(defvar librera-sync--fb2-mode-wrap-prefix '((cite . 6)
-					     (stanza . 6))
+(defvar librera-sync--fb2-mode-wrap-prefix '((cite . 5)
+					     (stanza . 5))
   "Number of symbols to skip at line's begin.
 Also includes suffix if needed (cite and stanza in fact has
 3 symbols prefix and 3 symbols suffix).")
@@ -35,14 +35,23 @@ Also includes suffix if needed (cite and stanza in fact has
 	(tag-changed 'nil)
 	(new-line 'nil)
 	(first-char 'nil)
-	(max-lines librera-sync--fb2-mode-max-lines)
+	;; (max-lines librera-sync--fb2-mode-max-lines)
+	(max-lines (+ librera-sync--fb2-mode-max-lines)) ;empyricaly found number - in
+					;some corner cases librera still adds string - hope it will
+					;fix it
 	)
     (while (and (char-after)
-		(< curr-lines max-lines))
+		;; (< (+ curr-lines (alist-get tag librera-sync--fb2-mode-height-coeff 1))
+		    ;; (1+ max-lines))
+		(<= (+ curr-lines (alist-get 'tag librera-sync--fb2-mode-height-coeff 1))
+		    max-lines)
+		;; (< curr-lines max-lines)
+		)
       (setq new-line 't
 	    first-char 't)
       (while (and (char-after)
-		  (< curr-chars librera-sync--fb2-mode-max-chars))
+		  (< curr-chars librera-sync--fb2-mode-max-chars)
+		  )
 	(setq tag (get-text-property (point) 'fb2-tag)
 	      tag-changed nil)
 	(when (and tag
@@ -76,21 +85,39 @@ Also includes suffix if needed (cite and stanza in fact has
 		(forward-char))
 	    )
 	  (cond ((equal (char-after) 10)	;newline
+		 ;; Seems like librera can compress two empty strings little more than just one
+		 ;; so i'll increase max-lines a little if there is two empty lines in a row
+		 (if (and first-char
+			  (equal (char-after (1+ (point)))
+				 10))
+		     (setq max-lines (+ 0.6 max-lines))) ;0.6 was founded empyrically,
+					;not sure it will work every time..
 		 ;; Avoiding edge case:
 		 ;; [almost string] [word not fitted to string][point] [newline]
+		 ;; In this case I'll dont reset curr word characters so parser
+		 ;; will return point before word after that line
+		 (if (not (> (+ curr-chars 1 curr-word-chars) librera-sync--fb2-mode-max-chars))
+		     (setq curr-word-chars 0))
 		 ;; In that case i'll just add additional line to counter
-		 (when (> (+ curr-chars 1 curr-word-chars) librera-sync--fb2-mode-max-chars)
-		   (setq curr-lines (1+ curr-lines))
+		   ;; (setq curr-lines (+ curr-lines (alist-get tag librera-sync--fb2-mode-height-coeff 1)))
 		   ;; (y-or-n-p "additional line")
-		   )
+		   ;; )
+
 		 ;; End the string if we have newline here
-		 (setq curr-chars (1+ librera-sync--fb2-mode-max-chars)
-		       curr-word-chars 0))
+		 (setq curr-chars (1+ librera-sync--fb2-mode-max-chars))
+		 )
 		((or (equal (char-after) 32)	;space
-		     (and (equal (char-after) 45);"-" (for words like photo-video)
-			  (not (member (char-before) '(10 32))))) ;I think it is more apropriate
+		     (and (equal (char-before) 45);"-" (for words like photo-video)
+			  (not (member (char-before (- (point) 1)) '(10 32 47 45 48 49 50 51 52 53 54 55 56 57)))))
+					;I think it is more apropriate
 					;check both before and after, but I don't know good way to jump
 					;to next-after symbol. This check must be enough
+					;UPD: not enough. for some reason librera considers
+					;string like "/////////-////--////-////" etc
+					;(Stivenson, Diamond age)
+					;as one word. Same with "9-15-81---2"
+					;from same place in stivenson.
+					;So I'll add these symbols to list
 		 ;; Add space if this is not first word
  		 (if (not new-line)
 		     (setq curr-chars (+ (alist-get curr-tag librera-sync--fb2-mode-length-coeff 1)
@@ -105,9 +132,10 @@ Also includes suffix if needed (cite and stanza in fact has
 			   last-point (point)))
 		 ;; At least one word in line - set new-line flat to nil
 		 (setq new-line nil)
-		 ;; (if (not (member (char-before) '(10 32))) ;let's hope previous char was part of
-		 ;; 			;the word
-		 ;;     (setq last-point (point)))
+
+		 ;; Another edge case - space is last character.
+		 (if (equal (1+ curr-chars) librera-sync--fb2-mode-max-chars)
+		     (setq curr-chars (1+ curr-chars)))
 		 )
 		(t
 		 (setq curr-word-chars (1+ curr-word-chars))))
@@ -116,14 +144,16 @@ Also includes suffix if needed (cite and stanza in fact has
 	  )
 	)
       (setq curr-lines (+ curr-lines (alist-get curr-tag librera-sync--fb2-mode-height-coeff 1)))
-      (y-or-n-p (format "Lines: %s, curr-word-chars: %s chars in line: %s" curr-lines curr-word-chars curr-chars))
+      ;; (y-or-n-p (format "Lines: %s, curr-word-chars: %s chars in line: %s" curr-lines curr-word-chars curr-chars))
       (setq curr-chars 0)
       (when (and (> curr-word-chars 0)
 		 last-point)
 	(goto-char last-point)
 	(setq curr-word-chars 0)
-	(y-or-n-p "jumped back to pos")
+
+	;; (y-or-n-p "jumped back to pos")
  	)
+      ;; (y-or-n-p (format "Lines: %s, max-lines : %s, curr-word-chars: %s chars in line: %s" curr-lines max-lines curr-word-chars curr-chars))
       )
     ))
 
