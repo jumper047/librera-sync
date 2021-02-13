@@ -67,10 +67,14 @@ Also includes suffix if needed (cite and stanza in fact has
 	    (setq curr-chars (1+ librera-sync--fb2-mode-max-chars)
 		  curr-lines (1+ max-lines))
 	  ;; Check if this is first title's newline - we need ignore it,
+	  ;; or first line is empty
 	  ;; so just move point one line down
-	  (if (and (eq prev-tag nil)
-		   (eq tag 'title)
-		   (equal curr-lines 0))
+	  (if (or (and (eq prev-tag nil)
+		       (eq tag 'title)
+		       (equal curr-lines 0))
+		  (and (equal curr-lines 0)
+		   (equal first-char 't)
+		   (equal (char-after) 10)))
 	      (setq max-lines (+ max-lines (alist-get tag librera-sync--fb2-mode-height-coeff 1)))
 	    )
  	  ;; First char in virtual line - check if we need to add some offset
@@ -85,6 +89,8 @@ Also includes suffix if needed (cite and stanza in fact has
 		(forward-char))
 	    )
 	  (cond ((equal (char-after) 10)	;newline
+		 ;; commented because of fixed height coefficient - seems like this hack not needed
+		 ;; anymore.
 		 ;; Seems like librera can compress two empty strings little more than just one
 		 ;; so i'll increase max-lines a little if there is two empty lines in a row
 		 (if (and first-char
@@ -92,12 +98,16 @@ Also includes suffix if needed (cite and stanza in fact has
 				 10))
 		     (setq max-lines (+ 0.6 max-lines))) ;0.6 was founded empyrically,
 					;not sure it will work every time..
+		 ;; ==============================
 		 ;; Avoiding edge case:
 		 ;; [almost string] [word not fitted to string][point] [newline]
 		 ;; In this case I'll dont reset curr word characters so parser
 		 ;; will return point before word after that line
-		 (if (not (> (+ curr-chars 1 curr-word-chars) librera-sync--fb2-mode-max-chars))
-		     (setq curr-word-chars 0))
+		 (if (not (> (+ curr-chars (* (+ 1 curr-word-chars)
+					      (alist-get tag librera-sync--fb2-mode-length-coeff 1)))
+			     librera-sync--fb2-mode-max-chars))
+		     (setq curr-word-chars 0
+			   last-point (point)))
 		 ;; In that case i'll just add additional line to counter
 		   ;; (setq curr-lines (+ curr-lines (alist-get tag librera-sync--fb2-mode-height-coeff 1)))
 		   ;; (y-or-n-p "additional line")
@@ -134,8 +144,10 @@ Also includes suffix if needed (cite and stanza in fact has
 		 (setq new-line nil)
 
 		 ;; Another edge case - space is last character.
-		 (if (equal (1+ curr-chars) librera-sync--fb2-mode-max-chars)
-		     (setq curr-chars (1+ curr-chars)))
+		 (if (equal (+ (alist-get curr-tag librera-sync--fb2-mode-length-coeff 1)
+			       curr-chars) librera-sync--fb2-mode-max-chars)
+		     (setq curr-chars (+ (alist-get curr-tag librera-sync--fb2-mode-length-coeff 1)
+					 curr-chars)))
 		 )
 		(t
 		 (setq curr-word-chars (1+ curr-word-chars))))
