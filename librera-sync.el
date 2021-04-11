@@ -34,7 +34,6 @@
 
 (require 'f)
 (require 'json)
-(require 'librera-sync-modes)
 
 (defgroup librera-sync nil
   "A group for librera-sync related customizations"
@@ -310,7 +309,7 @@ ARGS will be passed to function"
   (librera-sync--major-mode-command "set-pos" position))
 
 (defun librera-sync--book-name ()
-  "Returns book name used in librera config"
+  "Return book name used in librera config."
   (librera-sync--major-mode-command "book-name"))
 
 (defun librera-sync-track-current-buffer ()

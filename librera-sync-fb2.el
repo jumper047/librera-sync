@@ -89,8 +89,6 @@ Also includes suffix if needed (cite and stanza in fact has
 		(forward-char))
 	    )
 	  (cond ((equal (char-after) 10)	;newline
-		 ;; commented because of fixed height coefficient - seems like this hack not needed
-		 ;; anymore.
 		 ;; Seems like librera can compress two empty strings little more than just one
 		 ;; so i'll increase max-lines a little if there is two empty lines in a row
 		 (if (and first-char
@@ -98,7 +96,10 @@ Also includes suffix if needed (cite and stanza in fact has
 				 10))
 		     (setq max-lines (+ 0.6 max-lines))) ;0.6 was founded empyrically,
 					;not sure it will work every time..
-		 ;; ==============================
+
+		 ;; Seems like librera ignored empty-line tag. So I will too
+		 (if (eq tag 'empty-line)
+		     (setq max-lines (1+ max-lines)))
 		 ;; Avoiding edge case:
 		 ;; [almost string] [word not fitted to string][point] [newline]
 		 ;; In this case I'll dont reset curr word characters so parser
@@ -106,6 +107,13 @@ Also includes suffix if needed (cite and stanza in fact has
 		 (if (not (> (+ curr-chars (* (+ 1 curr-word-chars)
 					      (alist-get tag librera-sync--fb2-mode-length-coeff 1)))
 			     librera-sync--fb2-mode-max-chars))
+		     (setq curr-word-chars 0
+			   last-point (point)))
+		 ;; Corner case: one extra long word
+		 ;; In that case previous code will infinitely return us to the start of that word
+		 ;; Here I'll avoid that loop
+		 (if (> (* curr-word-chars (alist-get tag librera-sync--fb2-mode-length-coeff 1))
+			librera-sync--fb2-mode-max-chars)
 		     (setq curr-word-chars 0
 			   last-point (point)))
 		 ;; In that case i'll just add additional line to counter
