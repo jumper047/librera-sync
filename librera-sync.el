@@ -384,7 +384,6 @@ ARGS will be passed to function"
 		(not librera-sync-tracked-filenames))
 	   (librera-sync--stop-timer)))))
 
-;;;###autoload
 (defun librera-sync--global-turn-on ()
   "Enable librera-sync mode in buffer if major mode supported."
   (when (and (memq major-mode librera-sync-supported-modes)
