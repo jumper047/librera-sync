@@ -1,4 +1,4 @@
- ;;; librera-sync.el --- Sync document's position with Librera Reader for Android  -*- lexical-binding: t; -*-
+;;; librera-sync.el --- Sync document's position with Librera Reader for Android -*- lexical-binding: t; -*-
 
 ;; Copyright (c) 2021 Dmitriy Pshonko <jumper047@gmail.com>
 
@@ -399,5 +399,6 @@ ARGS will be passed to function"
   librera-sync--global-turn-on)
 
 (provide 'librera-sync)
+
 ;;; librera-sync.el ends here
 
