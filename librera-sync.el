@@ -4,9 +4,9 @@
 
 ;; Author: Dmitriy Pshonko <jumper047@gmail.com>
 ;; URL: https://github.com/jumper047/librera-sync
-;; Keywords: sync ebook epub pdf
-;; Version: 0.1
-;; Package-Requires: ((emacs "26.0"))
+;; Keywords: multimedia, sync
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "26.1") (f "0.17"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -40,8 +40,7 @@
 (defgroup librera-sync nil
   "A group for librera-sync related customizations"
   :group 'applications
-  :prefix "librera-sync-"
-  )
+  :prefix "librera-sync-")
 
 (defcustom librera-sync-directory nil
   "Path to Librera folder."
@@ -121,8 +120,7 @@ Ignored if whitelist is not empty"
 
 (defun librera-sync--curr-device-progr-json ()
   "Get path to currrent device's ap-Progress.json file."
-  (f-join (librera-sync--curr-device-dir) "app-Progress.json")
-  )
+  (f-join (librera-sync--curr-device-dir) "app-Progress.json"))
  
 (defun librera-sync--time-msecs ()
   "Get time in format used by Librera."
@@ -166,8 +164,7 @@ Ignored if whitelist is not empty"
 If buffer has position to restore, do nothing"
   (unless librera-sync--new-position
   (librera-sync--write-pos
-   (librera-sync--current-pos) (librera-sync--book-name)))
-  )
+   (librera-sync--current-pos) (librera-sync--book-name))))
 
 (defun librera-sync--read-progress-from (devname)
   "Read progress from device DEVNAME config.
@@ -222,8 +219,7 @@ Function checks new positions for all buffers from other Librera instances."
 		  (sname (car (nthcdr 2 filepos)))
 		  (notsame (not (string-equal sname librera-sync-device-name))))
 	(with-current-buffer filename
-	  (librera-sync--schedule-update-cur-buffer pos sname)
-	  )))))
+	  (librera-sync--schedule-update-cur-buffer pos sname))))))
 
 (defun librera-sync--schedule-update-cur-buffer (pos sname)
   "Schedule set current buffer to position POS.
@@ -261,8 +257,7 @@ resource name is SNAME"
   "Disable watchers."
   (dolist (watcher librera-sync-watchers)
     (file-notify-rm-watch watcher))
-  (setq librera-sync-watchers '())
-  )
+  (setq librera-sync-watchers '()))
 
 (defun librera-sync--watch-callback (watchdata)
   "Callback for file-inotify-watch.
@@ -296,8 +291,7 @@ ARGS will be passed to function"
   (when (member major-mode librera-sync-supported-modes)
     (let ((function-name (format "librera-sync--%s-%s" major-mode command)))
       (message function-name)
-      (apply (intern-soft function-name) args)))
-  )
+      (apply (intern-soft function-name) args))))
 
 (defun librera-sync--prepare-major-mode ()
   "Run some major mode specific code."
@@ -331,12 +325,9 @@ ARGS will be passed to function"
     (when-let* ((pos-params (librera-sync--read-pos-for (librera-sync--book-name)))
 		(position (car pos-params))
 		(source (car (nthcdr 2 pos-params))))
-      (librera-sync--schedule-update-cur-buffer position source)
-      )
+      (librera-sync--schedule-update-cur-buffer position source))
     (add-hook 'kill-buffer-hook
-	      #'(lambda () (librera-sync-mode -1)) -100 't)
-    )
-  )
+	      #'(lambda () (librera-sync-mode -1)) -100 't)))
 
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
@@ -370,8 +361,7 @@ ARGS will be passed to function"
 	 (pos-params (librera-sync--read-pos-for (librera-sync--book-name) devname)))
     (if pos-params
 	(librera-sync--set-pos (car pos-params))
-      (message "There is no progress for %S at this device" (librera-sync--book-name))
-  )))
+      (message "There is no progress for %S at this device" (librera-sync--book-name)))))
 
 ;;;###autoload
 (define-minor-mode librera-sync-mode
