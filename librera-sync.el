@@ -34,6 +34,7 @@
 
 (require 'f)
 (require 'json)
+(require 'librera-sync-pdf-tools)
 
 (defgroup librera-sync nil
   "A group for librera-sync related customizations"
@@ -73,6 +74,9 @@ Ignored if whitelist is not empty"
   "Only files from that list will not be synked."
   :group 'librera-sync
   :type '(repeat string))
+
+(defvar librera-sync-supported-modes '(pdf-view-mode)
+  "Major modes supported by librera.")
 
 (defvar librera-sync-timer nil
   "Timer for interval progress checking.")
@@ -289,6 +293,7 @@ Returns nil if there is no suitable function
 ARGS will be passed to function"
   (when (member major-mode librera-sync-supported-modes)
     (let ((function-name (format "librera-sync--%s-%s" major-mode command)))
+      (message function-name)
       (apply (intern-soft function-name) args)))
   )
 
