@@ -1,7 +1,6 @@
 (require 'dash)
 (require 'f)
 
-(declare-function librera-sync-save "librera-sync" ())
 
 (declare-function pdf-view-goto-page "pdf-view" (page))
 (declare-function pdf-cache-number-of-pages "pdf-cache" ())
