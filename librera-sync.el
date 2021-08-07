@@ -35,6 +35,7 @@
 (require 'f)
 (require 'json)
 (require 'librera-sync-pdf-tools)
+(require 'librera-sync-doc-view)
 
 (defgroup librera-sync nil
   "A group for librera-sync related customizations"
@@ -75,7 +76,8 @@ Ignored if whitelist is not empty"
   :group 'librera-sync
   :type '(repeat string))
 
-(defvar librera-sync-supported-modes '(pdf-view-mode)
+(defvar librera-sync-supported-modes '(pdf-view-mode
+				       doc-view-mode)
   "Major modes supported by librera.")
 
 (defvar librera-sync-timer nil
