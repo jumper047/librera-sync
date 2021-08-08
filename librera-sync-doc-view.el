@@ -1,4 +1,4 @@
-;;; librera-sync-doc-view.el --- doc-view support for librera-sync -*- lexical-bindings: t; -*-
+;;; librera-sync-doc-view.el --- Doc-view support for librera-sync -*- lexical-bindings: t; -*-
 
 ;; Copyright (c) 2021 Dmitriy Pshonko <jumper047@gmail.com>
 
@@ -33,34 +33,31 @@
 (declare-function doc-view-last-page-number "doc-view" ())
 
 
-(defun librera-sync--doc-view-mode-save (page)
+(defun librera-sync-doc-view-mode-save (page)
   "Function to advice goto-page, PAGE arg added for signature compatibility."
   (librera-sync-save))
 
-(defun librera-sync--doc-view-mode-prepare ()
+(defun librera-sync-doc-view-mode-prepare ()
   "Add librera advice to doc-view."
-  (advice-add 'doc-view-goto-page :after #'librera-sync--doc-view-mode-save)
-)
+  (advice-add 'doc-view-goto-page :after #'librera-sync--doc-view-mode-save))
 
-(defun librera-sync--doc-view-mode-clean ()
+(defun librera-sync-doc-view-mode-clean ()
   "Remove librera advice from doc-view."
-  (advice-remove 'doc-view-goto-page #'librera-sync--doc-view-mode-save)
-)
+  (advice-remove 'doc-view-goto-page #'librera-sync--doc-view-mode-save))
 
-(defun librera-sync--doc-view-mode-set-pos (position)
+(defun librera-sync-doc-view-mode-set-pos (position)
   "Set POSITION in doc-view buffer."
   (doc-view-goto-page
    (round (* position (doc-view-last-page-number)))))
 
-(defun librera-sync--doc-view-mode-current-pos ()
+(defun librera-sync-doc-view-mode-current-pos ()
   "Get current position in pdf-view buffer."
   (/ (eval `(doc-view-current-page))
      (float (doc-view-last-page-number))))
 
-(defun librera-sync--doc-view-mode-book-name ()
+(defun librera-sync-doc-view-mode-book-name ()
   "Get current book name."
-  (f-filename (buffer-file-name))
-  )
+  (f-filename (buffer-file-name)))
  
 (provide 'librera-sync-doc-view)
 

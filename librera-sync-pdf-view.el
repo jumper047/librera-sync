@@ -1,4 +1,4 @@
-;;; librera-sync-pdf-tools.el --- pdf-tools support for librera-sync -*- lexical-bindings: t; -*-
+;;; librera-sync-pdf-view.el --- Pdf-tools support for librera-sync -*- lexical-bindings: t; -*-
 
 ;; Copyright (c) 2021 Dmitriy Pshonko <jumper047@gmail.com>
 
@@ -35,31 +35,28 @@
 
 ;;; PDF-tools
 
-(defun librera-sync--pdf-view-mode-prepare ()
+(defun librera-sync-pdf-view-mode-prepare ()
   "Add librera hooks to PDF buffer."
-  (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save 0 't)
-)
+  (add-hook 'pdf-view-after-change-page-hook 'librera-sync-save 0 't))
 
-(defun librera-sync--pdf-view-mode-clean ()
+(defun librera-sync-pdf-view-mode-clean ()
   "Remove librera hooks from PDF buffer."
-  (remove-hook 'pdf-view-after-change-page-hook 'librera-sync-save 't)
-)
+  (remove-hook 'pdf-view-after-change-page-hook 'librera-sync-save 't))
 
-(defun librera-sync--pdf-view-mode-set-pos (position)
+(defun librera-sync-pdf-view-mode-set-pos (position)
   "Set POSITION in pdf-view buffer."
   (pdf-view-goto-page
    (round (* position (pdf-cache-number-of-pages)))))
 
-(defun librera-sync--pdf-view-mode-current-pos ()
+(defun librera-sync-pdf-view-mode-current-pos ()
   "Get current position in pdf-view buffer."
   (/ (eval `(pdf-view-current-page))
      (float (pdf-cache-number-of-pages))))
 
-(defun librera-sync--pdf-view-mode-book-name ()
+(defun librera-sync-pdf-view-mode-book-name ()
   "Get current book name."
-  (f-filename (buffer-file-name))
-  )
+  (f-filename (buffer-file-name)))
  
-(provide 'librera-sync-pdf-tools)
+(provide 'librera-sync-pdf-view)
 
-;;; librera-sync-pdf-tools ends here
+;;; librera-sync-pdf-view.el ends here

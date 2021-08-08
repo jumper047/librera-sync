@@ -314,7 +314,7 @@ Full function name will be librera-sync-- + \"major-mode\" + COMMAND
 Returns nil if there is no suitable function
 ARGS will be passed to function"
   (when (member major-mode librera-sync-supported-modes)
-    (let ((function-name (format "librera-sync--%s-%s" major-mode command)))
+    (let ((function-name (format "librera-sync-%s-%s" major-mode command)))
       (message function-name)
       (apply (intern-soft function-name) args))))
 
