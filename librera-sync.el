@@ -27,7 +27,32 @@
 
 ;;; Commentary:
 
-;; 
+;; Minor mode to sync document's position with [[https://github.com/foobnix/LibreraReader][Librera Reader]] (book/documents reader for Android).
+;; Position can be synced across multiple Emacs and Librera instances.
+
+;; Supported modes:
+;;- doc-view
+;;- pdf-tools
+
+;;Sadly, epub support will not be implemented in foreseeing future because of Librera's way to store position as a percent of book's length. It works fine if document has predefined pages, but in epub book's length and text's proportions strongly depends on rendering engine so same precent in Librera and nov, for example, points to different positions.
+
+;;; Synchronization setup
+;;  - Install Librera Reader to your Android smartphone/tablet here - [[http://librera.mobi/#download]]. You can skip this step if you want just sync position across Emacs instances
+;;  - Set up file synchronization tool ([[https://syncthing.net/][Syncthing]] for example)  to sync Librera folders across all your devices. If you installed Librera from Google Play you also can use Google Drive for synchronization as described here - [[https://librera.mobi/wiki/faq/setting-up-synchronization/]].
+;;; Package installation
+;;  Download package sources somewhere in Emacs load path.
+;;  In init.el:
+
+;;     (require 'librera-sync)
+;;     (setq librera-sync-directory "~/Sync/Librera")
+;;     (global-librera-sync-mode 1)
+
+
+   ;; Melpa is unavailable for now, but I hope it will change in near future.
+
+;;; Usage
+;;  Document's position will be automatically updated when librera-sync-mode will be active. Also it is possible to load position from certain device with command =librera-sync-load-from-device=
+
 
 
 ;;; Code:
