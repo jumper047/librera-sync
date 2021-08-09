@@ -368,7 +368,6 @@ ARGS will be passed to function"
   (let ((pos-params (librera-sync--read-pos-for (librera-sync--book-name))))
     (if pos-params
 	(let ((pos (car pos-params))
-	      (time (car (cdr pos-params)))
 	      (devname (car (nthcdr 2 pos-params))))
 	  (if (string-equal devname librera-sync-device-name)
 	      (message "Already latest position")
