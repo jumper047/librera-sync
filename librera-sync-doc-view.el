@@ -31,9 +31,10 @@
 
 (declare-function doc-view-goto-page "doc-view" (page))
 (declare-function doc-view-last-page-number "doc-view" ())
+(declare-function librera-sync-save "librera-sync")
 
 
-(defun librera-sync-doc-view-mode-save (page)
+(defun librera-sync--doc-view-mode-save (page)
   "Function to advice goto-page, PAGE arg added for signature compatibility."
   (librera-sync-save))
 
