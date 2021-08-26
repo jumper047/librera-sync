@@ -238,7 +238,7 @@ resource name is SNAME"
   ;; If buffer is active update immediately else schedule
   (if (eq (current-buffer) (window-buffer (selected-window)))
       (librera-sync--update-cur-buffer)
-    (add-hook 'post-command-hook 'librera-sync--update-cur-buffer 0 't)))
+    (add-hook 'post-command-hook #'librera-sync--update-cur-buffer 0 't)))
 
 (defun librera-sync--update-cur-buffer ()
   "Update current buffer if it has deferred position."
@@ -247,7 +247,7 @@ resource name is SNAME"
   (message "Position loaded from %S" librera-sync--update-source)
   (setq-local librera-sync--new-position nil)
   (setq-local librera-sync--update-source nil)
-  (remove-hook 'post-command-hook 'librera-sync--update-cur-buffer 't))
+  (remove-hook 'post-command-hook #'librera-sync--update-cur-buffer 't))
 
 
 ;; Inotify watcher functions
@@ -322,7 +322,7 @@ ARGS will be passed to function"
 (defun librera-sync-track-current-buffer ()
   "Save current buffer values and update if necessary."
   (if (member (librera-sync--book-name) librera-sync-tracked-filenames)
-      (message (format "Buffer %S already tracked" (librera-sync--book-name)))
+      (message "Buffer %S already tracked" (librera-sync--book-name))
     (librera-sync--prepare-major-mode)
     (push (librera-sync--book-name) librera-sync-tracked-filenames)
     (setq-local librera-sync--new-position nil)
@@ -333,7 +333,7 @@ ARGS will be passed to function"
 		(source (car (nthcdr 2 pos-params))))
       (librera-sync--schedule-update-cur-buffer position source))
     (add-hook 'kill-buffer-hook
-	      #'(lambda () (librera-sync-mode -1)) -100 't)))
+	      (lambda () (librera-sync-mode -1)) -100 't)))
 
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
