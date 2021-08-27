@@ -9,23 +9,29 @@ Position can be synced across multiple Emacs and Librera instances.
 - doc-view
 - pdf-tools
 
-*Work in progress*
+*Work in progress:*
 - fb2-mode
 
-Sadly, epub support will not be implemented in foreseeing future because of Librera's way to store position as a percent of book's length. It works fine if document has predefined pages, but in epub book's length and text's proportions strongly depends on rendering engine so same precent in Librera and nov, for example, points to different positions. 
+/Sadly, epub support will not be implemented in foreseeing future because of Librera's way to store position as a percent of book's length. It works fine if document has predefined pages, but in epub book's length and text's proportions strongly depends on rendering engine so same precent in Librera and nov, for example, points to different positions./
 
 * Synchronization setup
   - Install Librera Reader to your Android smartphone/tablet here - [[http://librera.mobi/#download]]. You can skip this step if you want just sync position across Emacs instances
   - Set up file synchronization tool ([[https://syncthing.net/][Syncthing]] for example)  to sync Librera folders across all your devices. If you installed Librera from Google Play you also can use Google Drive for synchronization as described here - [[https://librera.mobi/wiki/faq/setting-up-synchronization/]].
 * Package installation
-  Download package sources somewhere in emacs load path.
-  In init.el:
+  Easiest way is to install librera-sync from Melpa - ensure you setted up repository and just do =M-x package-install librera-sync=. You should point package to directory containing Librera profiles data, and enable global mode. Plain lisp config example:
    #+begin_src emacs-lisp
      (require 'librera-sync)
      (setq librera-sync-directory "~/Sync/Librera")
      (global-librera-sync-mode 1)
    #+end_src
+Use-package:
+#+begin_src emacs-lisp
+  (use-package librera-sync
+    :custom
+    (librera-sync-directory "~/Sync/Librera")
+    :config
+    (global-librera-sync-mode 1))
+#+end_src
 
-   Melpa is unavailable for now, but I hope it will change in near future.
 * Usage
-  Document's position will be automatically updated when librera-sync-mode will be active. Also it is possible to load position from certain device with command =librera-sync-load-from-device=
+  Document's position will be automatically updated when librera-sync-mode will be active. Also it is possible to load latest position manually with function =librera-sync-load=. In case when needed page from certain device    =librera-sync-load-from-device= function can be used.
