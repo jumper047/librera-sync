@@ -41,7 +41,8 @@
 
 (require 'f)
 (require 'json)
-(require 'librera-sync-pdf-tools)
+(require 'filenotify)
+(require 'librera-sync-pdf-view)
 (require 'librera-sync-doc-view)
 
 (defgroup librera-sync nil
