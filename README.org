@@ -1,6 +1,6 @@
 #+TITLE: Librera Sync
-
 #+PROPERTY: LOGGING nil
+[[https://melpa.org/#/librera-sync][file:https://melpa.org/packages/librera-sync-badge.svg]]
 
 Minor mode to sync document's position with [[https://github.com/foobnix/LibreraReader][Librera Reader]] (book/documents reader for Android).
 Position can be synced across multiple Emacs and Librera instances.
