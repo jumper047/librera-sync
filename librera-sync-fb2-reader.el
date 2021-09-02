@@ -12,6 +12,7 @@
 	(curr-chars 0)
 	(curr-word 0)
 	(hyphen-flag nil)
+	(just-started t)
 	last-tags
 	prev-tags
 	curr-tags
@@ -32,13 +33,15 @@
 	    curr-lengthstep (alist-get parent-tag lengthcoeff lengthcoeff-default)
 	    curr-heightstep (alist-get parent-tag heightcoeff heightcoeff-default)
 	    curr-paragraphprefix (alist-get parent-tag paragraph-prefix paragraph-prefix-default)
-	    paragraph-ended (and prev-tags (not curr-tags))
-	    paragraph-started (and curr-tags (not prev-tags)))
+	    paragraph-ended (and prev-tags (not curr-tags) (not just-started))
+	    paragraph-started (and curr-tags (not prev-tags) (not just-started)))
       (when prev-tags
 	(setq last-tags prev-tags))
 
       (when paragraph-started
-	(setq curr-chars (* curr-paragraphprefix curr-lengthstep)))
+	(setq curr-chars (* curr-paragraphprefix curr-lengthstep))
+(y-or-n-p (format "add prefix because paragraph started; current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))
+	)
       
 
       (cond (paragraph-ended
@@ -52,7 +55,7 @@
 	     (and (or (= curr-char 32)	;space
 		      (and (= curr-char 10) curr-tags)) ;soft newline (inside tag)
 		  (> curr-word 0))
-	     (let ((separator (if hyphen-flag 0 curr-lengthstep)))
+	     (let ((separator (if (or just-started hyphen-flag) 0 curr-lengthstep)))
 	     (if (and (> curr-word 0) (> (+ curr-chars separator curr-word) maxchars))
 		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
 			      curr-chars curr-word
@@ -61,7 +64,8 @@
 			)
 	       (setq curr-chars (+ curr-chars separator curr-word)
 		     curr-word 0)))
-	     (setq hyphen-flag nil))
+	     (setq hyphen-flag nil
+		   just-started nil))
 	    (;new line with empty-line tag
 	     (and (= curr-char 10) (member 'empty-line curr-tags))
 	     (setq curr-lines (+ curr-heightstep curr-lines))
@@ -74,7 +78,7 @@
 		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
 			      curr-chars curr-word
 			      curr-word 1)
-			(y-or-n-p (format "current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))
+			(y-or-n-p (format "in between current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))
 			)
 	       (setq curr-chars (+ curr-chars curr-lengthstep curr-word)
 		     curr-word 1
@@ -84,6 +88,9 @@
 	    (;any character inside tag except space and newline
 	     (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
 	     (setq curr-word (+ curr-lengthstep curr-word))
+      ;; (y-or-n-p (format "current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))	     
 	     ))
-      ;; (y-or-n-p (format "current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))
-      (forward-char))))
+      (forward-char))
+    (backward-char (1+ curr-chars))
+    )
+  )
