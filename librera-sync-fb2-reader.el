@@ -23,7 +23,8 @@
 	prev-char
 	curr-char
 	paragraph-ended
-	paragraph-started)
+	paragraph-started
+	new-title)
     (while (< curr-lines maxlines)
       (setq prev-char curr-char
 	    curr-char (char-after)
@@ -34,7 +35,8 @@
 	    curr-heightstep (alist-get parent-tag heightcoeff heightcoeff-default)
 	    curr-paragraphprefix (alist-get parent-tag paragraph-prefix paragraph-prefix-default)
 	    paragraph-ended (and prev-tags (not curr-tags) (not just-started))
-	    paragraph-started (and curr-tags (not prev-tags) (not just-started)))
+	    paragraph-started (and curr-tags (not prev-tags) (not just-started))
+	    new-title (and (not (member 'title last-tags)) (member 'title curr-tags)))
       (when prev-tags
 	(setq last-tags prev-tags))
 
@@ -44,7 +46,14 @@
 	)
       
 
-      (cond (paragraph-ended
+      (cond (;new title not at the start of the page (where it is current title obv.)
+	     (and new-title (> curr-lines 0))
+(y-or-n-p (format "new page because of new title; current word: %s; chars %s; lines %s" curr-word curr-chars curr-lines))
+	     (setq curr-chars 1
+		   curr-lines maxlines)
+
+	     )
+	    (paragraph-ended
 	     (if (and (>  curr-word 0)
 		      (> (+ curr-chars curr-lengthstep curr-word) maxchars))
 		 (setq curr-lines (+ curr-heightstep curr-lines))) 
