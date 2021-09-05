@@ -3,7 +3,15 @@
 
 ;; TODO: remove just-started flag (forgot why I added it)
 
-(defun librera-sync--fb2-reader-skip-page (&optional debug)
+(defvar librera-sync-fb2-reader-debug 't)
+
+(defun librera-sync--fb2-reader-debug-message (mess &rest formatters)
+       (when librera-sync-fb2-reader-debug
+	 (let ((infomess (concat mess " (press any key to continue)")))
+	   (apply #'message infomess formatters)
+	   (read-char))))
+
+(defun librera-sync-fb2-reader-skip-page (&optional debug)
   (interactive "P")
   (let ((maxchars 33)
 	(maxlines 33)
@@ -70,36 +78,39 @@
       (when paragraph-started
 	(setq curr-chars (* (+ curr-paragraphprefix curr-lineprefix)
 			    curr-lengthstep))
-	(if debug (y-or-n-p (format "paragrph started; cw: %s; chr %s; lns %s"
-				    curr-word curr-chars curr-lines))))
+	(librera-sync--fb2-reader-debug-message
+	 "paragrph started; cw: %s; chr %s; lns %s"
+	 curr-word curr-chars curr-lines))
 
       (when title-ended
-	     (setq curr-lines (+ prev-heightstep curr-lines)
-		   curr-chars 0
-		   curr-word 0)
-	     (if debug (y-or-n-p (format
-				  "title ended; cw: %s; chr %s; lns %s hstep: %s"
-				  curr-word curr-chars curr-lines
-				  prev-heightstep))))
+	(setq curr-lines (+ prev-heightstep curr-lines)
+	      curr-chars 0
+	      curr-word 0)
+	(librera-sync--fb2-reader-debug-message
+	 "title ended; cw: %s; chr %s; lns %s hstep: %s"
+	 curr-word curr-chars curr-lines
+	 prev-heightstep))
 
-      ;; ;; Additional lines between cites, stanzas etc.
-      ;; (if  (and (or (member 'stanza last-tags)
-      ;; 		    (member 'cite last-tags)
-      ;; 		    (member 'stanza curr-tags)
-      ;; 		    (member 'cite curr-tags))
-      ;; 		(not prev-tags)
-      ;; 		;; (>= maxlines (+ curr-heightstep curr-lines))
-      ;; 		)
-      ;; 	  (setq curr-lines (1+ curr-lines))
-      ;; 	(if debug (y-or-n-p
-      ;; 		   (format
-      ;; 		    "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
-      ;; 		    curr-word curr-chars curr-lines))))
+      ;; Additional lines between cites, stanzas etc.
+      (let ((changed-tags (append tags-appears tags-disappears)))
+	(when  (and (or (member 'stanza changed-tags)
+		      (member 'cite changed-tags))
+		    (not just-started)
+		    curr-tags
+		    (not prev-tags)
+		;; (>= maxlines (+ curr-heightstep curr-lines))
+		)
+	  (setq curr-lines (1+ curr-lines))
+	  (librera-sync--fb2-reader-debug-message
+	   "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
+	   curr-word curr-chars curr-lines)))
+      
 
       (cond (;new title not at the start of the page (where it is current title obv.)
 	     (and title-started (> curr-lines 0))
-	     (if debug (y-or-n-p (format "title started; cw: %s; chr %s; lns %s"
-					 curr-word curr-chars curr-lines)))
+	     (librera-sync--fb2-reader-debug-message
+	      "title started; cw: %s; chr %s; lns %s"
+	      curr-word curr-chars curr-lines)
 	     (setq curr-chars 1
 		   curr-lines maxlines))
 	    (paragraph-ended
@@ -119,8 +130,9 @@
 	       (setq curr-lines (+ prev-heightstep curr-lines)
 		     curr-chars 0
 		     curr-word 0))
-	     (if debug (y-or-n-p (format "paragraph ended; cw: %s; chr %s; lns %s"
-					 curr-word curr-chars curr-lines))))
+	     (librera-sync--fb2-reader-debug-message
+	      "paragraph ended; cw: %s; chr %s; lns %s"
+	      curr-word curr-chars curr-lines))
 	    (;space and word before it
 	     (and (or (= curr-char 32)	;space
 		      (and (= curr-char 10) curr-tags)) ;soft newline (inside tag)
@@ -133,10 +145,9 @@
 			      curr-chars (+ (* curr-lengthstep curr-lineprefix)
 					    curr-word)
 			      curr-word 0)
-			(if debug
-			    (y-or-n-p
-			     (format "word ended; cw: %s; chr %s; l ns %s"
-				     curr-word curr-chars curr-lines))))
+			(librera-sync--fb2-reader-debug-message
+			 "word ended; cw: %s; chr %s; l ns %s"
+			 curr-word curr-chars curr-lines))
 	       (setq curr-chars (+ curr-chars separator curr-word)
 		     curr-word 0)))
 	     (setq hyphen-flag nil
@@ -144,8 +155,9 @@
 	    (;new line with empty-line tag
 	     (and (= curr-char 10) (member 'empty-line curr-tags))
 	     (setq curr-lines (+ curr-heightstep curr-lines))
-	     (if debug (y-or-n-p (format "empty line; cw: %s; chr %s; lns %s"
-					 curr-word curr-chars curr-lines))))
+	     (librera-sync--fb2-reader-debug-message
+	      "empty line; cw: %s; chr %s; lns %s"
+	      curr-word curr-chars curr-lines))
 	    (;hyphen inbetween two words
 	     (and curr-tags curr-word (equal prev-char 45) ;hyphen
 		  (not (member curr-char '(10 32))))
@@ -154,18 +166,20 @@
 		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
 			      curr-chars curr-word
 			      curr-word 1)
-			(if debug (y-or-n-p (format
-					     "hyphen; cw: %s; chr %s; lns %s"
-					     curr-word curr-chars curr-lines))))
+			(librera-sync--fb2-reader-debug-message
+			 "hyphen; cw: %s; chr %s; lns %s"
+			 curr-word curr-chars curr-lines))
 	       (setq curr-chars (+ curr-chars curr-lengthstep curr-word)
 		     curr-word 1
 		     hyphen-flag 't)))
 	    (;any character inside tag except space and newline
 	     (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
 	     (setq curr-word (+ curr-lengthstep curr-word))
-	     (if (and debug (> (car debug) 4))
-		 (y-or-n-p (format
-			    "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
-			    curr-lengthstep curr-word curr-chars curr-lines)))))
+	     ;; (librera-sync--fb2-reader-debug-message
+	     ;;  "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
+	     ;;  curr-lengthstep curr-word curr-chars curr-lines)
+	     ))
       (forward-char))
-    (backward-char (1+ curr-chars))))
+    (backward-char (1+ curr-chars))
+    ;; curr-chars
+    ))
