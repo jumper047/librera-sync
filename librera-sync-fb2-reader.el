@@ -1,6 +1,8 @@
 (require 'cl-lib)
 (require 'dash)
 
+;; TODO: remove just-started flag (forgot why I added it)
+
 (defun librera-sync--fb2-reader-skip-page (&optional debug)
   (interactive "P")
   (let ((maxchars 33)
@@ -9,14 +11,19 @@
 	(heightcoeff-default 1)
 	(lengthcoeff '((title . 1.4)))
 	(lengthcoeff-default 1)
-	(paragraph-prefix '((title . 2)))
+	(paragraph-prefix '((title . 2)
+			    (poem . 0)))
 	(paragraph-prefix-default 1.5)
-	(line-prefix '((cite . 5)))
+	(line-prefix '((cite . 5)
+		       (poem . 5)))
 	(line-prefix-default 0)
 	(curr-lines 0)
 	(curr-chars 0)
 	(curr-word 0)
 	(hyphen-flag nil)
+	;; Just started flag used to avoid situations whe paragraph-prefix
+	;; appended to string when parser start it's work from center of the string
+	;; Not sure this is correct though
 	(just-started t)
 	last-tags
 	prev-tags
@@ -41,21 +48,25 @@
 	    curr-char (char-after)
 	    prev-tags curr-tags
 	    curr-tags (get-text-property (point) 'fb2-reader-tags)
+	    last-tags (if prev-tags prev-tags last-tags)
+	    tags-appears (seq-difference curr-tags last-tags)
+	    tags-disappears (seq-difference last-tags curr-tags)
+	    curr-tag (cl-first curr-tags)
 	    parent-tag (cl-second curr-tags)
 	    prev-heightstep curr-heightstep
-	    curr-lengthstep (alist-get parent-tag lengthcoeff lengthcoeff-default)
-	    curr-heightstep (alist-get parent-tag heightcoeff heightcoeff-default)
-
+	    curr-lengthstep (alist-get (if (member 'p curr-tags)
+					   parent-tag curr-tag)
+				       lengthcoeff lengthcoeff-default)
+	    curr-heightstep (alist-get (if (member 'p curr-tags)
+					   parent-tag curr-tag)
+				       heightcoeff heightcoeff-default)
 	    curr-paragraphprefix (alist-get parent-tag paragraph-prefix paragraph-prefix-default)
 	    curr-lineprefix (alist-get parent-tag line-prefix line-prefix-default)
-	    paragraph-ended (and prev-tags (not curr-tags) (not just-started))
-	    paragraph-started (and curr-tags (not prev-tags) (not just-started))
-	    title-started (and (not (member 'title last-tags)) (member 'title curr-tags))
-	    title-ended (and (member 'title prev-tags) (not curr-tags)))
+	    paragraph-started (and (member 'p tags-appears) (not just-started))
+	    paragraph-ended (and (member 'p tags-disappears) (not just-started))
+	    title-started (member 'title tags-appears)
+	    title-ended (member 'title tags-disappears))
       
-      (when prev-tags
-	(setq last-tags prev-tags))
-
       (when paragraph-started
 	(setq curr-chars (* (+ curr-paragraphprefix curr-lineprefix)
 			    curr-lengthstep))
@@ -66,8 +77,24 @@
 	     (setq curr-lines (+ prev-heightstep curr-lines)
 		   curr-chars 0
 		   curr-word 0)
-	     (if debug (y-or-n-p (format "title ended; cw: %s; chr %s; lns %s"
-					 curr-word curr-chars curr-lines))))
+	     (if debug (y-or-n-p (format
+				  "title ended; cw: %s; chr %s; lns %s hstep: %s"
+				  curr-word curr-chars curr-lines
+				  prev-heightstep))))
+
+      ;; ;; Additional lines between cites, stanzas etc.
+      ;; (if  (and (or (member 'stanza last-tags)
+      ;; 		    (member 'cite last-tags)
+      ;; 		    (member 'stanza curr-tags)
+      ;; 		    (member 'cite curr-tags))
+      ;; 		(not prev-tags)
+      ;; 		;; (>= maxlines (+ curr-heightstep curr-lines))
+      ;; 		)
+      ;; 	  (setq curr-lines (1+ curr-lines))
+      ;; 	(if debug (y-or-n-p
+      ;; 		   (format
+      ;; 		    "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
+      ;; 		    curr-word curr-chars curr-lines))))
 
       (cond (;new title not at the start of the page (where it is current title obv.)
 	     (and title-started (> curr-lines 0))
