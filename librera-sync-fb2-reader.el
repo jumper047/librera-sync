@@ -11,10 +11,16 @@
 	   (apply #'message infomess formatters)
 	   (read-char))))
 
-(defun librera-sync-fb2-reader-skip-page (&optional debug)
+(defun librera-sync-fb2-reader-skip-page (previous-characters)
   (interactive "P")
+  (setq previous-characters (or previous-characters 0))
   (let ((maxchars 33)
-	(maxlines 33)
+	(maxlines (- 33 0.3))		;it is necessary in some cases
+					;(at least when title's height
+					;is 6 strings - then max.
+					;length became 32.8 < 33 ->
+					;one unwanted extra line added
+					;to page)
 	(heightcoeff '((title . 1.4)))
 	(heightcoeff-default 1)
 	(lengthcoeff '((title . 1.4)))
@@ -106,7 +112,8 @@
 	   curr-word curr-chars curr-lines)))
       
 
-      (cond (;new title not at the start of the page (where it is current title obv.)
+      (cond (;new title not at the start of the page
+	     ;(where it is current title obviously)
 	     (and title-started (> curr-lines 0))
 	     (librera-sync--fb2-reader-debug-message
 	      "title started; cw: %s; chr %s; lns %s"
@@ -179,7 +186,26 @@
 	     ;;  "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
 	     ;;  curr-lengthstep curr-word curr-chars curr-lines)
 	     ))
-      (forward-char))
-    (backward-char (1+ curr-chars))
-    ;; curr-chars
-    ))
+      (forward-char)
+      (unless (char-after)
+	(setq curr-lines (1+ maxlines))))
+    ;; (backward-char)
+    curr-chars))
+
+(defun librera-sync-fb2-reader-pages ()
+  (beginning-of-buffer)
+  (let* ((chars-before 0)
+	(page-num 1)
+	(pages (list (cons page-num (point)))))
+    (while (char-after)
+      (setq chars-before (librera-sync-fb2-reader-skip-page chars-before)
+	    page-num (1+ page-num))
+      (save-excursion
+	(backward-char chars-before)
+	(push (cons page-num (point)) pages)))
+    (message "pages: %s" page-num)
+    (reverse pages)))
+
+
+;; (setq-local librera-pages (librera-sync-fb2-reader-pages))
+;; (goto-char (alist-get 49 librera-pages))
