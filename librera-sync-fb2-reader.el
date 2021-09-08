@@ -32,13 +32,14 @@
 		       (poem . 5)))
 	(line-prefix-default 0)
 	(curr-lines 0)
-	(curr-chars 0)
+	(curr-chars previous-characters)
 	(curr-word 0)
 	(hyphen-flag nil)
 	;; Just started flag used to avoid situations whe paragraph-prefix
 	;; appended to string when parser start it's work from center of the string
 	;; Not sure this is correct though
 	(just-started t)
+	(paragraph-first-word nil)
 	last-tags
 	prev-tags
 	curr-tags
@@ -63,8 +64,8 @@
 	    prev-tags curr-tags
 	    curr-tags (get-text-property (point) 'fb2-reader-tags)
 	    last-tags (if prev-tags prev-tags last-tags)
-	    tags-appears (seq-difference curr-tags last-tags)
-	    tags-disappears (seq-difference last-tags curr-tags)
+	    tags-appears (-difference curr-tags last-tags)
+	    tags-disappears (-difference last-tags curr-tags)
 	    curr-tag (cl-first curr-tags)
 	    parent-tag (cl-second curr-tags)
 	    prev-heightstep curr-heightstep
@@ -83,7 +84,8 @@
       
       (when paragraph-started
 	(setq curr-chars (* (+ curr-paragraphprefix curr-lineprefix)
-			    curr-lengthstep))
+			    curr-lengthstep)
+	      paragraph-first-word 't)
 	(librera-sync--fb2-reader-debug-message
 	 "paragrph started; cw: %s; chr %s; lns %s"
 	 curr-word curr-chars curr-lines))
@@ -144,7 +146,7 @@
 	     (and (or (= curr-char 32)	;space
 		      (and (= curr-char 10) curr-tags)) ;soft newline (inside tag)
 		  (> curr-word 0))
-	     (let ((separator (if (or just-started hyphen-flag)
+	     (let ((separator (if (or just-started hyphen-flag paragraph-first-word)
 				  0 curr-lengthstep)))
 	       (if (and (> curr-word 0) (> (+ curr-chars separator curr-word)
 					   maxchars))
@@ -156,7 +158,8 @@
 			 "word ended; cw: %s; chr %s; l ns %s"
 			 curr-word curr-chars curr-lines))
 	       (setq curr-chars (+ curr-chars separator curr-word)
-		     curr-word 0)))
+		     curr-word 0
+		     paragraph-first-word nil)))
 	     (setq hyphen-flag nil
 		   just-started nil))
 	    (;new line with empty-line tag
@@ -182,15 +185,16 @@
 	    (;any character inside tag except space and newline
 	     (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
 	     (setq curr-word (+ curr-lengthstep curr-word))
-	     ;; (librera-sync--fb2-reader-debug-message
-	     ;;  "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
-	     ;;  curr-lengthstep curr-word curr-chars curr-lines)
+	     (librera-sync--fb2-reader-debug-message
+	      "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
+	      curr-lengthstep curr-word curr-chars curr-lines)
 	     ))
       (forward-char)
       (unless (char-after)
 	(setq curr-lines (1+ maxlines))))
     ;; (backward-char)
-    curr-chars))
+    (if librera-sync-fb2-reader-debug (message "Chars before: %s" curr-chars)
+      (1+ curr-chars))))
 
 (defun librera-sync-fb2-reader-pages ()
   (beginning-of-buffer)
