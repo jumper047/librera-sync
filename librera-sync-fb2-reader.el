@@ -87,8 +87,8 @@
 			    curr-lengthstep)
 	      paragraph-first-word 't)
 	(librera-sync--fb2-reader-debug-message
-	 "paragrph started; cw: %s; chr %s; lns %s"
-	 curr-word curr-chars curr-lines))
+	 "paragrph started; cw: %s; chr %s; lns %s pprfx %s lprfx %s"
+	 curr-word curr-chars curr-lines curr-paragraphprefix curr-lineprefix))
 
       (when title-ended
 	(setq curr-lines (+ prev-heightstep curr-lines)
