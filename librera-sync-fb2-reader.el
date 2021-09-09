@@ -77,8 +77,10 @@
 				       heightcoeff heightcoeff-default)
 	    curr-paragraphprefix (alist-get parent-tag paragraph-prefix paragraph-prefix-default)
 	    curr-lineprefix (alist-get parent-tag line-prefix line-prefix-default)
-	    paragraph-started (and (member 'p tags-appears) (not just-started))
-	    paragraph-ended (and (member 'p tags-disappears) (not just-started))
+	    paragraph-started (and (or (member 'v tags-appears)
+				       (member 'p tags-appears)) (not just-started))
+	    paragraph-ended (and (or (member 'v tags-disappears)
+				     (member 'p tags-disappears)) (not just-started))
 	    title-started (member 'title tags-appears)
 	    title-ended (member 'title tags-disappears))
       
