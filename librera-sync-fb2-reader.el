@@ -1,19 +1,25 @@
 (require 'cl-lib)
 (require 'dash)
 
-;; TODO: remove just-started flag (forgot why I added it)
-
 (defvar librera-sync-fb2-reader-debug 't)
 
-(defun librera-sync--fb2-reader-debug-message (mess &rest formatters)
-       (when librera-sync-fb2-reader-debug
-	 (let ((infomess (concat mess " (press any key to continue)")))
-	   (apply #'message infomess formatters)
-	   (read-char))))
+(defvar-local librera-sync-fb2-debug-level 'char) ;char or word or page
 
-(defun librera-sync-fb2-reader-skip-page (previous-characters)
+(defun librera-sync--fb2-reader-debug-message (levels mess &rest formatters)
+  (when (and librera-sync-fb2-reader-debug
+	     (member librera-sync-fb2-debug-level levels))
+    (let ((infomess (concat mess " (press any key to continue)"))
+	  (key-pressed))
+      (apply #'message infomess formatters)
+      (setq librera-sync-fb2-debug-level
+	    (if (equal (read-char) 99)
+		'char
+	      'word)))))
+
+(defun librera-sync-fb2-reader-skip-page (previous-characters &optional previous-lines)
   (interactive "P")
   (setq previous-characters (or previous-characters 0))
+  (setq previous-lines (or previous-lines 0))
   (let ((maxchars 33)
 	(maxlines (- 33 0.3))		;it is necessary in some cases
 					;(at least when title's height
@@ -31,14 +37,15 @@
 	(line-prefix '((cite . 5)
 		       (stanza . 5)))
 	(line-prefix-default 0)
-	(curr-lines 0)
+	(curr-lines (truncate previous-lines))
 	(curr-chars previous-characters)
 	(curr-word 0)
 	(hyphen-flag nil)
-	;; Just started flag used to avoid situations whe paragraph-prefix
+	;; first-char-after* flags used to avoid situations whe paragraph-prefix
 	;; appended to string when parser start it's work from center of the string
 	;; Not sure this is correct though
-	(just-started t)
+	(first-char-after-start 't)
+	(first-word-after-start 't)
 	(paragraph-first-word nil)
 	last-tags
 	prev-tags
@@ -64,6 +71,10 @@
 	    prev-tags curr-tags
 	    curr-tags (get-text-property (point) 'fb2-reader-tags)
 	    last-tags (if prev-tags prev-tags last-tags)
+	    ;; Main goal of this flage is to prevent 'paragraph-started/ended
+	    ;; from premature triggering; so it is safe set it to nil when
+	    ;; last-tags (which used in paragraph detection) became non-nil
+	    first-char-after-start (if last-tags nil t)
 	    tags-appears (-difference curr-tags last-tags)
 	    tags-disappears (-difference last-tags curr-tags)
 	    curr-tag (cl-first curr-tags)
@@ -78,9 +89,11 @@
 	    curr-paragraphprefix (alist-get parent-tag paragraph-prefix paragraph-prefix-default)
 	    curr-lineprefix (alist-get parent-tag line-prefix line-prefix-default)
 	    paragraph-started (and (or (member 'v tags-appears)
-				       (member 'p tags-appears)) (not just-started))
+				       (member 'p tags-appears))
+				   (not first-char-after-start))
 	    paragraph-ended (and (or (member 'v tags-disappears)
-				     (member 'p tags-disappears)) (not just-started))
+				     (member 'p tags-disappears))
+				 (not first-char-after-start))
 	    title-started (member 'title tags-appears)
 	    title-ended (member 'title tags-disappears))
       
@@ -88,7 +101,7 @@
 	(setq curr-chars (* (+ curr-paragraphprefix curr-lineprefix)
 			    curr-lengthstep)
 	      paragraph-first-word 't)
-	(librera-sync--fb2-reader-debug-message
+	(librera-sync--fb2-reader-debug-message '(word char)
 	 "paragrph started; cw: %s; chr %s; lns %s pprfx %s lprfx %s"
 	 curr-word curr-chars curr-lines curr-paragraphprefix curr-lineprefix))
 
@@ -96,59 +109,68 @@
 	(setq curr-lines (+ prev-heightstep curr-lines)
 	      curr-chars 0
 	      curr-word 0)
-	(librera-sync--fb2-reader-debug-message
+	(librera-sync--fb2-reader-debug-message '(word char)
 	 "title ended; cw: %s; chr %s; lns %s hstep: %s"
 	 curr-word curr-chars curr-lines
 	 prev-heightstep))
 
-      ;; Additional lines between cites, stanzas etc.
-      (let ((changed-tags (append tags-appears tags-disappears)))
-	(when  (and (or (member 'stanza changed-tags)
-		      (member 'cite changed-tags))
-		    (not just-started)
-		    curr-tags
-		    (not prev-tags)
-		;; (>= maxlines (+ curr-heightstep curr-lines))
-		)
-	  (setq curr-lines (1+ curr-lines))
-	  (librera-sync--fb2-reader-debug-message
-	   "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
-	   curr-word curr-chars curr-lines)))
+      ;; ;; Additional lines between cites, stanzas etc.
+      ;; (let ((changed-tags (append tags-appears tags-disappears)))
+      ;; 	(when  (and (or (member 'stanza changed-tags)
+      ;; 			(member 'cite changed-tags))
+      ;; 		    (not (member 'empty-line changed-tags))
+      ;; 		    (not just-started)
+      ;; 		    curr-tags
+      ;; 		    (not prev-tags)
+      ;; 		;; (>= maxlines (+ curr-heightstep curr-lines))
+      ;; 		)
+      ;; 	  (setq curr-lines (1+ curr-lines))
+      ;; 	  (librera-sync--fb2-reader-debug-message
+      ;; 	   "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
+      ;; 	   curr-word curr-chars curr-lines)))
       
 
       (cond (;new title not at the start of the page
 	     ;(where it is current title obviously)
 	     (and title-started (> curr-lines 0))
-	     (librera-sync--fb2-reader-debug-message
+	     (librera-sync--fb2-reader-debug-message '(word char)
 	      "title started; cw: %s; chr %s; lns %s"
 	      curr-word curr-chars curr-lines)
 	     (setq curr-chars 1
 		   curr-lines maxlines))
 	    (paragraph-ended
-	     (if (and (>  curr-word 0)
+	     ;; At the end of the paragraph some tricky situation can appear:
+	     ;; If last word before paragraph's end is also the only word on
+	     ;; a new line (like prev line's end\nword.\nNext paragraph...)
+
+	     ;; This case describes situation similiar to "space after word"
+	     ;; but when paragraph ends after that word.
+	     (if (and curr-word
 		      (> (+ curr-chars curr-lengthstep curr-word) maxchars))
-		 (if (>= maxlines (+ (* 2 curr-heightstep) curr-lines))
+		;If there is at least one line available I just
+		;add two lines - they'll became two lines or one line
+		;and new page on paragraph end - it's fine.
+		 (if (>= maxlines (+ (* 2 prev-heightstep) curr-lines))
 		     (setq curr-lines (+ (* 2 prev-heightstep) curr-lines)
 			   curr-chars 0
 			   curr-word 0)
 		   (setq curr-lines (+ (* 2 prev-heightstep) curr-lines)
 			 ;; This is kinda tricky - in case last word in
 			 ;; paragraph appears on next page, I'll set curr chars
-			 ;; to curr word to move cursor back to the start
-			 ;; of the string after while loop
-			 ;; exits
-			 curr-chars curr-word))
+			 ;; to maxchars to skip that line on next skip-page launch
+			 curr-chars 0
+			 curr-wod 0))
 	       (setq curr-lines (+ prev-heightstep curr-lines)
 		     curr-chars 0
 		     curr-word 0))
-	     (librera-sync--fb2-reader-debug-message
+	     (librera-sync--fb2-reader-debug-message '(word char)
 	      "paragraph ended; cw: %s; chr %s; lns %s"
 	      curr-word curr-chars curr-lines))
 	    (;space and word before it
 	     (and (or (= curr-char 32)	;space
 		      (and (= curr-char 10) curr-tags)) ;soft newline (inside tag)
 		  (> curr-word 0))
-	     (let ((separator (if (or just-started hyphen-flag paragraph-first-word)
+	     (let ((separator (if (or first-word-after-start hyphen-flag paragraph-first-word)
 				  0 curr-lengthstep)))
 	       (if (and (> curr-word 0) (> (+ curr-chars separator curr-word)
 					   maxchars))
@@ -156,29 +178,35 @@
 			      curr-chars (+ (* curr-lengthstep curr-lineprefix)
 					    curr-word)
 			      curr-word 0)
-			(librera-sync--fb2-reader-debug-message
+			(librera-sync--fb2-reader-debug-message '(word char)
 			 "word ended; cw: %s; chr %s; l ns %s"
 			 curr-word curr-chars curr-lines))
 	       (setq curr-chars (+ curr-chars separator curr-word)
 		     curr-word 0
 		     paragraph-first-word nil)))
 	     (setq hyphen-flag nil
-		   just-started nil))
-	    (;new line with empty-line tag
-	     (and (= curr-char 10) (member 'empty-line curr-tags))
-	     (setq curr-lines (+ curr-heightstep curr-lines))
-	     (librera-sync--fb2-reader-debug-message
-	      "empty line; cw: %s; chr %s; lns %s"
-	      curr-word curr-chars curr-lines))
+		   first-word-after-start nil))
+	    (;new line with empty-line or empty-line-special tags
+	     (and (= curr-char 10) (or (member 'empty-line-special curr-tags)
+				       (member 'empty-line curr-tags)))
+	     ;; I'll ignore newline if it is first or last line on page
+	     (unless (or (= curr-lines 0)
+			 (>= maxlines (+ curr-heightstep curr-lines)))
+	       (setq curr-lines (+ curr-heightstep curr-lines))
+	       (librera-sync--fb2-reader-debug-message
+		'(word char) "empty line; cw: %s; chr %s; lns %s"
+		curr-word curr-chars curr-lines)
+	       ))
 	    (;hyphen inbetween two words
 	     (and curr-tags curr-word (equal prev-char 45) ;hyphen
 		  (not (member curr-char '(10 32))))
-	     (if (and (> curr-word 0) (> (+ curr-chars curr-lengthstep curr-word)
-					 maxchars))
+	     (if (and curr-word (> (+ curr-chars curr-lengthstep curr-word)
+				   maxchars))
 		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
 			      curr-chars curr-word
-			      curr-word 1)
-			(librera-sync--fb2-reader-debug-message
+			      curr-word 1
+			      hyphen-flag 't)
+			(librera-sync--fb2-reader-debug-message '(word)
 			 "hyphen; cw: %s; chr %s; lns %s"
 			 curr-word curr-chars curr-lines))
 	       (setq curr-chars (+ curr-chars curr-lengthstep curr-word)
@@ -187,7 +215,7 @@
 	    (;any character inside tag except space and newline
 	     (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
 	     (setq curr-word (+ curr-lengthstep curr-word))
-	     (librera-sync--fb2-reader-debug-message
+	     (librera-sync--fb2-reader-debug-message '(char)
 	      "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
 	      curr-lengthstep curr-word curr-chars curr-lines)
 	     ))
@@ -195,23 +223,29 @@
       (unless (char-after)
 	(setq curr-lines (1+ maxlines))))
     ;; (backward-char)
-    (if librera-sync-fb2-reader-debug (message "Chars before: %s" curr-chars)
-      (1+ curr-chars))))
+    (if librera-sync-fb2-reader-debug (message "Chars before: %s; Lines before: %s" curr-chars curr-lines)
+      (cons (1+ curr-chars) (- curr-lines maxlines)))))
 
 (defun librera-sync-fb2-reader-pages ()
   (beginning-of-buffer)
   (let* ((chars-before 0)
+	 (lines-before 0)
 	(page-num 1)
 	(pages (list (cons page-num (point)))))
     (while (char-after)
-      (setq chars-before (librera-sync-fb2-reader-skip-page chars-before)
+      (setq before (librera-sync-fb2-reader-skip-page chars-before lines-before)
+	    chars-before (car before)
+	    lines-before (cdr before)
 	    page-num (1+ page-num))
       (save-excursion
 	(backward-char chars-before)
-	(push (cons page-num (point)) pages)))
+	(push (cons page-num (point)) pages))
+      )
     (message "pages: %s" page-num)
     (reverse pages)))
 
 
 ;; (setq-local librera-pages (librera-sync-fb2-reader-pages))
 ;; (goto-char (alist-get 49 librera-pages))
+;; all ok till 164 and became worse to 168
+;; 200-201 - just started issue
