@@ -41,6 +41,7 @@
 	(curr-chars previous-characters)
 	(curr-word 0)
 	(hyphen-flag nil)
+	(multiple-hyphens-flag nil)
 	;; first-char-after* flags used to avoid situations whe paragraph-prefix
 	;; appended to string when parser start it's work from center of the string
 	;; Not sure this is correct though
@@ -114,22 +115,6 @@
 	 curr-word curr-chars curr-lines
 	 prev-heightstep))
 
-      ;; ;; Additional lines between cites, stanzas etc.
-      ;; (let ((changed-tags (append tags-appears tags-disappears)))
-      ;; 	(when  (and (or (member 'stanza changed-tags)
-      ;; 			(member 'cite changed-tags))
-      ;; 		    (not (member 'empty-line changed-tags))
-      ;; 		    (not just-started)
-      ;; 		    curr-tags
-      ;; 		    (not prev-tags)
-      ;; 		;; (>= maxlines (+ curr-heightstep curr-lines))
-      ;; 		)
-      ;; 	  (setq curr-lines (1+ curr-lines))
-      ;; 	  (librera-sync--fb2-reader-debug-message
-      ;; 	   "empty line between stanzas/cites; cw: %s; chr %s; lns %s"
-      ;; 	   curr-word curr-chars curr-lines)))
-      
-
       (cond (;new title not at the start of the page
 	     ;(where it is current title obviously)
 	     (and title-started (> curr-lines 0))
@@ -146,10 +131,16 @@
 	     ;; This case describes situation similiar to "space after word"
 	     ;; but when paragraph ends after that word.
 	     (if (and curr-word
+		      (not multiple-hyphens-flag)
+					;see explanation in hyphens section
+					;actually here should be more complex logic
+					;including word calculation (in case there
+					;is only one word in paragprah; will impl
+					;it if necessary)
 		      (> (+ curr-chars curr-lengthstep curr-word) maxchars))
-		;If there is at least one line available I just
-		;add two lines - they'll became two lines or one line
-		;and new page on paragraph end - it's fine.
+		      ;If there is at least one line available I just
+		      ;add two lines - they'll became two lines or one line
+		      ;and new page on paragraph end - it's fine.
 		 (if (>= maxlines (+ (* 2 prev-heightstep) curr-lines))
 		     (setq curr-lines (+ (* 2 prev-heightstep) curr-lines)
 			   curr-chars 0
@@ -163,7 +154,8 @@
 	       (setq curr-lines (+ prev-heightstep curr-lines)
 		     curr-chars 0
 		     curr-word 0))
-	     (librera-sync--fb2-reader-debug-message '(word char)
+	     (librera-sync--fb2-reader-debug-message
+	      '(word char)
 	      "paragraph ended; cw: %s; chr %s; lns %s"
 	      curr-word curr-chars curr-lines))
 	    (;space and word before it
@@ -172,26 +164,36 @@
 		  (> curr-word 0))
 	     (let ((separator (if (or first-word-after-start hyphen-flag paragraph-first-word)
 				  0 curr-lengthstep)))
-	       (if (and (> curr-word 0) (> (+ curr-chars separator curr-word)
-					   maxchars))
-		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
-			      curr-chars (+ (* curr-lengthstep curr-lineprefix)
-					    curr-word)
-			      curr-word 0)
-			(librera-sync--fb2-reader-debug-message '(word char)
-			 "word ended; cw: %s; chr %s; l ns %s"
-			 curr-word curr-chars curr-lines))
-	       (setq curr-chars (+ curr-chars separator curr-word)
-		     curr-word 0
-		     paragraph-first-word nil)))
+	       (if (and curr-word (> (+ curr-chars separator curr-word)
+				     maxchars))
+		   (if multiple-hyphens-flag
+		       (progn (setq curr-lines (+ curr-heightstep curr-lines)
+				    curr-chars 0
+				    curr-word 0)
+			      (librera-sync--fb2-reader-debug-message
+			       '(word char)
+			       "Multiple hyphens ended; cw: %s; chr %s; l ns %s"
+			       curr-word curr-chars curr-lines))
+		     (setq curr-lines (+ curr-heightstep curr-lines)
+			   curr-chars (+ (* curr-lengthstep curr-lineprefix)
+					 curr-word)
+			   curr-word 0)
+		     (librera-sync--fb2-reader-debug-message
+		      '(word char)
+		      "word ended; cw: %s; chr %s; l ns %s"
+		      curr-word curr-chars curr-lines))
+		 (setq curr-chars (+ curr-chars separator curr-word)
+		       curr-word 0
+		       paragraph-first-word nil)))
 	     (setq hyphen-flag nil
+		   multiple-hyphens-flag nil
 		   first-word-after-start nil))
 	    (;new line with empty-line or empty-line-special tags
 	     (and (= curr-char 10) (or (member 'empty-line-special curr-tags)
 				       (member 'empty-line curr-tags)))
 	     ;; I'll ignore newline if it is first or last line on page
 	     (unless (or (= curr-lines 0)
-			 (>= maxlines (+ curr-heightstep curr-lines)))
+			 (<= maxlines (+ curr-heightstep curr-lines)))
 	       (setq curr-lines (+ curr-heightstep curr-lines))
 	       (librera-sync--fb2-reader-debug-message
 		'(word char) "empty line; cw: %s; chr %s; lns %s"
@@ -200,22 +202,30 @@
 	    (;hyphen inbetween two words
 	     (and curr-tags curr-word (equal prev-char 45) ;hyphen
 		  (not (member curr-char '(10 32))))
-	     (if (and curr-word (> (+ curr-chars curr-lengthstep curr-word)
-				   maxchars))
-		 (progn (setq curr-lines (+ curr-heightstep curr-lines)
-			      curr-chars curr-word
-			      curr-word 1
-			      hyphen-flag 't)
-			(librera-sync--fb2-reader-debug-message '(word)
-			 "hyphen; cw: %s; chr %s; lns %s"
-			 curr-word curr-chars curr-lines))
-	       (setq curr-chars (+ curr-chars curr-lengthstep curr-word)
-		     curr-word 1
-		     hyphen-flag 't)))
+		  ;there is interesting corner case: word with multiple
+		  ;hyphens is not splitting by rendered (for example something like
+		  ;111-11-11---11-111)
+	     (if hyphen-flag
+		 (setq curr-word (1+ curr-word)
+		       multiple-hyphens-flag 't)
+	       (if (and curr-word (> (+ curr-chars curr-lengthstep curr-word)
+				     maxchars))
+		   (progn (setq curr-lines (+ curr-heightstep curr-lines)
+				curr-chars curr-word
+				curr-word 1
+				hyphen-flag 't)
+			  (librera-sync--fb2-reader-debug-message
+			   '(word)
+			   "hyphen; cw: %s; chr %s; lns %s"
+			   curr-word curr-chars curr-lines))
+		 (setq curr-chars (+ curr-chars curr-lengthstep curr-word)
+		       curr-word 1
+		       hyphen-flag 't))))
 	    (;any character inside tag except space and newline
 	     (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
 	     (setq curr-word (+ curr-lengthstep curr-word))
-	     (librera-sync--fb2-reader-debug-message '(char)
+	     (librera-sync--fb2-reader-debug-message
+	      '(char)
 	      "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
 	      curr-lengthstep curr-word curr-chars curr-lines)
 	     ))
@@ -249,3 +259,6 @@
 ;; (goto-char (alist-get 49 librera-pages))
 ;; all ok till 164 and became worse to 168
 ;; 200-201 - just started issue
+;; 675-677 anomaly
+;; 679-680 - one line missing - anomaly at 678 th page
+;; 705-706 - missing page
