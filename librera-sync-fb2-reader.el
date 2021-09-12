@@ -211,7 +211,8 @@
 	       (if (and curr-word (> (+ curr-chars curr-lengthstep curr-word)
 				     maxchars))
 		   (progn (setq curr-lines (+ curr-heightstep curr-lines)
-				curr-chars curr-word
+				curr-chars (+ (* curr-lengthstep curr-lineprefix)
+					      curr-word)
 				curr-word 1
 				hyphen-flag 't)
 			  (librera-sync--fb2-reader-debug-message
