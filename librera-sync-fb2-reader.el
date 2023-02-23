@@ -1,3 +1,30 @@
+;;; librera-sync-fb2-reader.el --- FB2-reader support for librera-sync -*- lexical-bindings: t; -*-
+
+;; Copyright (c) 2023 Dmitriy Pshonko <jumper047@gmail.com>
+
+;; This file is NOT part of GNU Emacs.
+
+;;; License:
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; fb2-reader related functions for librera-sync
+
+;;; Code:
+
 (require 'cl-lib)
 (require 'dash)
 
@@ -263,3 +290,5 @@
 ;; 675-677 anomaly
 ;; 679-680 - one line missing - anomaly at 678 th page
 ;; 705-706 - missing page
+
+;;; librera-sync-fb2-reader.el ends here
