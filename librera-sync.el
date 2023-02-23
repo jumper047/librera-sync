@@ -69,8 +69,8 @@
   "Method to check progress update."
   :group 'librera-sync
   :type '(choice
-	  (const :tag "Watching file changes with inotify" inotify)
-	  (const :tag "Check updates by timer" timer)))
+          (const :tag "Watching file changes with inotify" inotify)
+          (const :tag "Check updates by timer" timer)))
 
 (defcustom librera-sync-blacklist '()
   "Files from that list will not be synked.
@@ -84,7 +84,7 @@ Ignored if whitelist is not empty"
   :type '(repeat string))
 
 (defvar librera-sync-supported-modes '(pdf-view-mode
-				       doc-view-mode)
+                                       doc-view-mode)
   "Major modes supported by librera.")
 
 (defvar librera-sync-timer nil
@@ -107,24 +107,24 @@ Ignored if whitelist is not empty"
   (unless librera-sync-directory
     (error "Librera directory not set"))
   (let ((devnames '())
-	(devdirs (f-join librera-sync-directory "profile.Librera")))
+        (devdirs (f-join librera-sync-directory "profile.Librera")))
     (dolist (devdir (directory-files  devdirs nil "device.*") devnames)
       (setq devnames (cons (car (cdr (split-string (f-filename devdir)
-						   "\\."))) devnames)))))
+                                                   "\\."))) devnames)))))
 
 (defun librera-sync--device-dir (devname)
   "Get full path to conig dir of device DEVNAME."
   (unless librera-sync-directory (error "Librera directory not set"))
   (let ((devdir (f-join librera-sync-directory "profile.Librera" (concat "device." devname))))
     (if (f-exists-p devdir)
-	devdir)))
+        devdir)))
 
 (defun librera-sync--curr-device-dir ()
   "Get paths to all device directories as list."
   (unless librera-sync-directory
     (error "Librera directory not set"))
   (f-join librera-sync-directory "profile.Librera"
-	  (concat "device." librera-sync-device-name)))
+          (concat "device." librera-sync-device-name)))
 
 (defun librera-sync--curr-device-progr-json ()
   "Get path to currrent device's ap-Progress.json file."
@@ -143,29 +143,29 @@ Ignored if whitelist is not empty"
 
   (if (not (f-exists? (librera-sync--curr-device-progr-json)))
       (with-temp-file (librera-sync--curr-device-progr-json)
-	(insert (json-encode (list (cons docname
-					 (list (cons "cp" json-false)
-					       (cons "d" 0)
-					       (cons "dc" json-false)
-					       (cons "dp" json-false)
-					       (cons "lk" 2)
-					       (cons "p" position)
-					       (cons "s" 120)
-					       (cons "sp" json-false)
-					       (cons "t" 0)
-					       (cons "x" 0)
-					       (cons "y" 0)
-					       (cons "z" 100)))))))
+        (insert (json-encode (list (cons docname
+                                         (list (cons "cp" json-false)
+                                               (cons "d" 0)
+                                               (cons "dc" json-false)
+                                               (cons "dp" json-false)
+                                               (cons "lk" 2)
+                                               (cons "p" position)
+                                               (cons "s" 120)
+                                               (cons "sp" json-false)
+                                               (cons "t" 0)
+                                               (cons "x" 0)
+                                               (cons "y" 0)
+                                               (cons "z" 100)))))))
     (let* ((json-object-type 'hash-table)
-	   (json-array-type 'list)
-	   (json-key-type 'string)
-	   (app-progress (json-read-file (librera-sync--curr-device-progr-json)))
-	   (book-params (gethash docname app-progress)))
+           (json-array-type 'list)
+           (json-key-type 'string)
+           (app-progress (json-read-file (librera-sync--curr-device-progr-json)))
+           (book-params (gethash docname app-progress)))
 
       (puthash "p" position book-params)
       (puthash "t" (librera-sync--time-msecs) book-params)
       (with-temp-file (librera-sync--curr-device-progr-json)
-	(insert (json-encode app-progress))))))
+        (insert (json-encode app-progress))))))
 
 (defun librera-sync-save ()
   "Save current position to Librera profile.
@@ -178,11 +178,11 @@ If buffer has position to restore, do nothing"
   "Read progress from device DEVNAME config.
 Returns hashtable with Librera's json structure"
   (when-let* ((json-object-type 'hash-table)
-	      (json-array-type 'list)
-	      (json-key-type 'string)
-	      (devpath (librera-sync--device-dir devname))
-	      (progress-path (f-join devpath
-				     "app-Progress.json")))
+              (json-array-type 'list)
+              (json-key-type 'string)
+              (devpath (librera-sync--device-dir devname))
+              (progress-path (f-join devpath
+                                     "app-Progress.json")))
     (json-read-file progress-path)))
 
 (defun librera-sync--read-all-pos ()
@@ -190,18 +190,18 @@ Returns hashtable with Librera's json structure"
 Returns hash table with list '(POSITION TIME FILE)"
   (let ((positions (make-hash-table :test 'equal)))
     (dolist (devname
-	     (librera-sync--device-names)
-	     positions)
+             (librera-sync--device-names)
+             positions)
       (dolist (trbuf librera-sync-tracked-filenames)
-	(when-let* ((progress-js (librera-sync--read-progress-from devname))
-		    (bookparams (gethash trbuf progress-js))
-		    (npos (gethash "p" bookparams))
-		    (ntime (gethash "t" bookparams))
-		    (trbufval (gethash trbuf positions '(0 0 "")))
-		    (pos (car trbufval))
-		    (time (car (cdr trbufval)))
-		    (fresh (< time ntime)))
-	  (puthash trbuf (list npos ntime devname) positions))))))
+        (when-let* ((progress-js (librera-sync--read-progress-from devname))
+                    (bookparams (gethash trbuf progress-js))
+                    (npos (gethash "p" bookparams))
+                    (ntime (gethash "t" bookparams))
+                    (trbufval (gethash trbuf positions '(0 0 "")))
+                    (pos (car trbufval))
+                    (time (car (cdr trbufval)))
+                    (fresh (< time ntime)))
+          (puthash trbuf (list npos ntime devname) positions))))))
   
 
 (defun librera-sync--read-pos-for (docname &optional devname)
@@ -211,10 +211,10 @@ Returns (position time devname)
 Docname must be already added to tracked buffers list"
   (if devname
       (when-let* ((progress-js (librera-sync--read-progress-from devname))
-		  (doc-params (gethash docname progress-js))
-		  (position (gethash "p" doc-params))
-		  (time (gethash "t" doc-params)))
-	(list position time devname))
+                  (doc-params (gethash docname progress-js))
+                  (position (gethash "p" doc-params))
+                  (time (gethash "t" doc-params)))
+        (list position time devname))
     (gethash docname (librera-sync--read-all-pos))))
 
 (defun librera-sync--schedule-update-all-tracked ()
@@ -223,11 +223,11 @@ Function checks new positions for all buffers from other Librera instances."
   (let* ((positions (librera-sync--read-all-pos)))
     (dolist (filename librera-sync-tracked-filenames)
       (when-let* ((filepos (gethash filename positions))
-		  (pos (car filepos))
-		  (sname (car (nthcdr 2 filepos)))
-		  (notsame (not (string-equal sname librera-sync-device-name))))
-	(with-current-buffer filename
-	  (librera-sync--schedule-update-cur-buffer pos sname))))))
+                  (pos (car filepos))
+                  (sname (car (nthcdr 2 filepos)))
+                  (notsame (not (string-equal sname librera-sync-device-name))))
+        (with-current-buffer filename
+          (librera-sync--schedule-update-cur-buffer pos sname))))))
 
 (defun librera-sync--schedule-update-cur-buffer (pos sname)
   "Schedule set current buffer to position POS.
@@ -258,8 +258,8 @@ resource name is SNAME"
   (dolist (name (librera-sync--device-names))
     (unless (string-equal name librera-sync-device-name)
       (push (file-notify-add-watch (librera-sync--device-dir name) '(change)
-				   'librera-sync--watch-callback)
-	    librera-sync-watchers))))
+                                   'librera-sync--watch-callback)
+            librera-sync-watchers))))
 
 (defun librera-sync--stop-watching ()
   "Disable watchers."
@@ -271,7 +271,7 @@ resource name is SNAME"
   "Callback for file-inotify-watch.
 WATCHDATA contains some info about event"
   (when (and (string-equal "renamed" (car (cdr watchdata)))
-	     (string-equal "app-Progress.json" (f-filename (car (nthcdr 3 watchdata)))))
+             (string-equal "app-Progress.json" (f-filename (car (nthcdr 3 watchdata)))))
     (librera-sync--schedule-update-all-tracked)))
 
 
@@ -280,9 +280,9 @@ WATCHDATA contains some info about event"
 (defun librera-sync--start-timer ()
   "Start timer for checking."
   (setq librera-sync-timer
-	(run-with-timer librera-sync-interval
-			librera-sync-interval
-			'librera-sync--schedule-update-all-tracked)))
+        (run-with-timer librera-sync-interval
+                        librera-sync-interval
+                        'librera-sync--schedule-update-all-tracked)))
 
 (defun librera-sync--stop-timer ()
   "Cancel Librera update timer."
@@ -330,16 +330,16 @@ ARGS will be passed to function"
     (setq-local librera-sync--update-source nil)
     ;; Trying to restore position
     (when-let* ((pos-params (librera-sync--read-pos-for (librera-sync--book-name)))
-		(position (car pos-params))
-		(source (car (nthcdr 2 pos-params))))
+                (position (car pos-params))
+                (source (car (nthcdr 2 pos-params))))
       (librera-sync--schedule-update-cur-buffer position source))
     (add-hook 'kill-buffer-hook
-	      (lambda () (librera-sync-mode -1)) -100 't)))
+              (lambda () (librera-sync-mode -1)) -100 't)))
 
 (defun librera-sync-untrack-current-buffer ()
   "Stop tracking current buffer."
   (setq librera-sync-tracked-filenames
-	(delete (librera-sync--book-name) librera-sync-tracked-filenames))
+        (delete (librera-sync--book-name) librera-sync-tracked-filenames))
   (librera-sync--clean-major-mode))
 
 ;;;###autoload
@@ -349,12 +349,12 @@ ARGS will be passed to function"
   (interactive)
   (let ((pos-params (librera-sync--read-pos-for (librera-sync--book-name))))
     (if pos-params
-	(let ((pos (car pos-params))
-	      (devname (car (nthcdr 2 pos-params))))
-	  (if (string-equal devname librera-sync-device-name)
-	      (message "Already latest position")
-	    (message "Position loaded from %s" devname)
-	    (librera-sync--set-pos pos)))
+        (let ((pos (car pos-params))
+              (devname (car (nthcdr 2 pos-params))))
+          (if (string-equal devname librera-sync-device-name)
+              (message "Already latest position")
+            (message "Position loaded from %s" devname)
+            (librera-sync--set-pos pos)))
       (message "There is no position for this document"))))
 
 ;;;###autoload
@@ -362,11 +362,11 @@ ARGS will be passed to function"
   "Choose device to load position from."
   (interactive)
   (let* ((prompt (format "Load progress for %S from: " (librera-sync--book-name)))
-	 (candidates (delete librera-sync-device-name (librera-sync--device-names)))
-	 (devname (completing-read prompt candidates nil 't))
-	 (pos-params (librera-sync--read-pos-for (librera-sync--book-name) devname)))
+         (candidates (delete librera-sync-device-name (librera-sync--device-names)))
+         (devname (completing-read prompt candidates nil 't))
+         (pos-params (librera-sync--read-pos-for (librera-sync--book-name) devname)))
     (if pos-params
-	(librera-sync--set-pos (car pos-params))
+        (librera-sync--set-pos (car pos-params))
       (message "There is no progress for %S at this device" (librera-sync--book-name)))))
 
 ;;;###autoload
@@ -376,28 +376,28 @@ ARGS will be passed to function"
   :group 'librera-sync
   (if librera-sync-mode
       (progn (cond ((and (eq librera-sync-update-method 'inotify)
-			 (not librera-sync-watchers))
-		    (librera-sync--start-watching))
-		   ((and (eq librera-sync-update-method 'timer)
-			 (not librera-sync-timer))
-		    (librera-sync--start-timer)))
-	     (librera-sync-track-current-buffer))
+                         (not librera-sync-watchers))
+                    (librera-sync--start-watching))
+                   ((and (eq librera-sync-update-method 'timer)
+                         (not librera-sync-timer))
+                    (librera-sync--start-timer)))
+             (librera-sync-track-current-buffer))
     (librera-sync-untrack-current-buffer)
     (cond ((and (eq librera-sync-update-method 'inotify)
-		(not librera-sync-tracked-filenames))
-	   (librera-sync--stop-watching))
-	  ((and (eq librera-sync-update-method 'timer)
-		(not librera-sync-tracked-filenames))
-	   (librera-sync--stop-timer)))))
+                (not librera-sync-tracked-filenames))
+           (librera-sync--stop-watching))
+          ((and (eq librera-sync-update-method 'timer)
+                (not librera-sync-tracked-filenames))
+           (librera-sync--stop-timer)))))
 
 (defun librera-sync--global-turn-on ()
   "Enable librera-sync mode in buffer if major mode supported."
   (when (and (memq major-mode librera-sync-supported-modes)
-	     (cond (librera-sync-whitelist
-		    (member (librera-sync--book-name) librera-sync-whitelist))
-		   (librera-sync-blacklist
-		    (not (member (librera-sync--book-name) librera-sync-blacklist)))
-		   (t t)))
+             (cond (librera-sync-whitelist
+                    (member (librera-sync--book-name) librera-sync-whitelist))
+                   (librera-sync-blacklist
+                    (not (member (librera-sync--book-name) librera-sync-blacklist)))
+                   (t t)))
     (librera-sync-mode +1)))
 
 ;;;###autoload
