@@ -52,7 +52,7 @@
    (round (* position (doc-view-last-page-number)))))
 
 (defun librera-sync-doc-view-mode-current-pos ()
-  "Get current position in pdf-view buffer."
+  "Get current position in doc-view buffer."
   (/ (eval `(doc-view-current-page))
      (float (doc-view-last-page-number))))
 
