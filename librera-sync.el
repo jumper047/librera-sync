@@ -73,13 +73,13 @@
           (const :tag "Check updates by timer" timer)))
 
 (defcustom librera-sync-blacklist '()
-  "Files from that list will not be synked.
+  "Files from that list will not be synced.
 Ignored if whitelist is not empty"
   :group 'librera-sync
   :type '(repeat string))
 
 (defcustom librera-sync-whitelist '()
-  "Only files from that list will not be synked."
+  "Only files from that list will not be synced."
   :group 'librera-sync
   :type '(repeat string))
 
