@@ -196,7 +196,7 @@ Returns hashtable with Librera's json structure"
 
 (defun librera-sync--read-all-pos ()
   "Get latest positions for all tracked buffers.
-Returns hash table with list '(POSITION TIME FILE)"
+Returns hash table with list (POSITION TIME FILE)"
   (let ((positions (make-hash-table :test 'equal)))
     (dolist (devname
              (librera-sync--device-names)
