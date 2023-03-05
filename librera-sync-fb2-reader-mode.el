@@ -1,4 +1,4 @@
-;;; librera-sync-fb2-reader.el --- FB2-reader support for librera-sync -*- lexical-bindings: t; -*-
+;;; librera-sync-fb2-reader-mode.el --- FB2-reader support for librera-sync -*- lexical-bindings: t; -*-
 
 ;; Copyright (c) 2023 Dmitriy Pshonko <jumper047@gmail.com>
 
@@ -27,33 +27,70 @@
 
 (require 'cl-lib)
 (require 'dash)
+(require 'pulse)
+(require 'subr-x)
 
-(defvar librera-sync-fb2-reader-debug 't)
+(defgroup librera-sync-fb2-reader nil
+  "Settings related to FB2-reader mode."
+  :group 'librera-sync
+  :prefix "librera-sync-fb2-reader")
 
-(defvar-local librera-sync-fb2-debug-level 'char) ;char or word or page
+(defcustom librera-sync-fb2-reader-mode-page-width 27
+  "Max number of characters in the line on Android device."
+  :group 'librera-sync-fb2-reader-mode
+  :type '(number))
 
-(defun librera-sync--fb2-reader-debug-message (levels mess &rest formatters)
-  (when (and librera-sync-fb2-reader-debug
-             (member librera-sync-fb2-debug-level levels))
+(defcustom librera-sync-fb2-reader-mode-page-height 27
+  "Number of the lines on a page on Android device."
+  :group 'librera-sync-fb2-reader-mode
+  :type '(number))
+
+(defcustom librera-sync-fb2-reader-mode-highlight-page 't
+  "Highlight page boundaries when changing location in currently opened book."
+  :group 'librera-sync-fb2-reader-mode
+  :type '(boolean))
+
+(defvar librera-sync-fb2-reader-mode-index-file-name "fb2-reader-mode-indexes.el"
+  "Name of the file which contains indexes for previously opened files.")
+(defvar-local librera-sync-fb2-reader-mode-index nil
+  "List with the positions of the beginnings of the pages.")
+
+(defvar librera-sync-fb2-reader-mode-debug 'nil
+  "If t various debugging messages will be printed during index calculation.")
+(defvar-local librera-sync-fb2-reader-mode-debug-level 'char ;char or word or page
+  "Tune up level of debugging currently needed.")
+
+(defvar librera-sync-fb2-reader-mode--curr-pos 0
+  "Current position in the buffer.")
+
+(defun librera-sync-fb2-reader-mode-index-file ()
+  "Get path to the file containing indexes for fb2 books."
+  (expand-file-name librera-sync-fb2-reader-mode-index-file-name librera-sync-cache-directory))
+
+(defun librera-sync--fb2-reader-mode-debug-message (levels mess &rest formatters)
+  "Prints debug message if current level is needed, and waits until key pressed.
+
+LEVELS is the list with debug levels, required to trigger debug message.
+MESS is the message, FORMATTERS are formatters as for `format' command."
+  (when (and librera-sync-fb2-reader-mode-debug
+             (member librera-sync-fb2-reader-mode-debug-level levels))
     (let ((infomess (concat mess " (press any key to continue)"))
           (key-pressed))
       (apply #'message infomess formatters)
-      (setq librera-sync-fb2-debug-level
+      (setq librera-sync-fb2-reader-mode-debug-level
             (if (equal (read-char) 99)
                 'char
               'word)))))
 
-(defun librera-sync-fb2-reader-skip-page (previous-characters &optional previous-lines)
+(defun librera-sync-fb2-reader-mode--skip-page (previous-characters &optional previous-lines)
+  "Skip the page as if it was displayed in Librera Reader."
   (interactive "P")
   (setq previous-characters (or previous-characters 0))
   (setq previous-lines (or previous-lines 0))
-  (let ((maxchars 27)
-        (maxlines (- 27 0.3))		;it is necessary in some cases
-                                        ;(at least when title's height
-                                        ;is 6 strings - then max.
-                                        ;length became 32.8 < 33 ->
-                                        ;one unwanted extra line added
-                                        ;to page)
+  (let ((maxchars librera-sync-fb2-reader-mode-page-width)
+        ;;It is necessary in some cases (at least when title's height is 6 strings -
+        ;;then max. length became 32.8 < 33 -> one unwanted extra line added to page)
+        (maxlines (- librera-sync-fb2-reader-mode-page-height 0.3))
         (heightcoeff '((title . 1.4)))
         (heightcoeff-default 1)
         (lengthcoeff '((title . 1.4)))
@@ -69,7 +106,7 @@
         (curr-word 0)
         (hyphen-flag nil)
         (multiple-hyphens-flag nil)
-        ;; first-char-after* flags used to avoid situations whe paragraph-prefix
+        ;; first-char-after* flags used to avoid situations when paragraph-prefix
         ;; appended to string when parser start it's work from center of the string
         ;; Not sure this is correct though
         (first-char-after-start 't)
@@ -79,6 +116,9 @@
         prev-tags
         curr-tags
         parent-tag
+        tags-appears
+        tags-disappears
+        curr-tag
         curr-lengthcoeff
         curr-heightcoeff
         curr-paragraphprefix
@@ -129,25 +169,25 @@
         (setq curr-chars (* (+ curr-paragraphprefix curr-lineprefix)
                             curr-lengthstep)
               paragraph-first-word 't)
-        (librera-sync--fb2-reader-debug-message '(word char)
-                                                "paragrph started; cw: %s; chr %s; lns %s pprfx %s lprfx %s"
-                                                curr-word curr-chars curr-lines curr-paragraphprefix curr-lineprefix))
+        (librera-sync--fb2-reader-mode-debug-message '(word char)
+                                                     "paragrph started; cw: %s; chr %s; lns %s pprfx %s lprfx %s"
+                                                     curr-word curr-chars curr-lines curr-paragraphprefix curr-lineprefix))
 
       (when title-ended
         (setq curr-lines (+ prev-heightstep curr-lines)
               curr-chars 0
               curr-word 0)
-        (librera-sync--fb2-reader-debug-message '(word char)
-                                                "title ended; cw: %s; chr %s; lns %s hstep: %s"
-                                                curr-word curr-chars curr-lines
-                                                prev-heightstep))
+        (librera-sync--fb2-reader-mode-debug-message '(word char)
+                                                     "title ended; cw: %s; chr %s; lns %s hstep: %s"
+                                                     curr-word curr-chars curr-lines
+                                                     prev-heightstep))
 
-      (cond (;new title not at the start of the page
-                                        ;(where it is current title obviously)
+      (cond (;;new title not at the start of the page
+             ;;(where it is current title obviously)
              (and title-started (> curr-lines 0))
-             (librera-sync--fb2-reader-debug-message '(word char)
-                                                     "title started; cw: %s; chr %s; lns %s"
-                                                     curr-word curr-chars curr-lines)
+             (librera-sync--fb2-reader-mode-debug-message '(word char)
+                                                          "title started; cw: %s; chr %s; lns %s"
+                                                          curr-word curr-chars curr-lines)
              (setq curr-chars 1
                    curr-lines maxlines))
             (paragraph-ended
@@ -177,11 +217,11 @@
                          ;; paragraph appears on next page, I'll set curr chars
                          ;; to maxchars to skip that line on next skip-page launch
                          curr-chars 0
-                         curr-wod 0))
+                         curr-word 0))
                (setq curr-lines (+ prev-heightstep curr-lines)
                      curr-chars 0
                      curr-word 0))
-             (librera-sync--fb2-reader-debug-message
+             (librera-sync--fb2-reader-mode-debug-message
               '(word char)
               "paragraph ended; cw: %s; chr %s; lns %s"
               curr-word curr-chars curr-lines))
@@ -197,7 +237,7 @@
                        (progn (setq curr-lines (+ curr-heightstep curr-lines)
                                     curr-chars 0
                                     curr-word 0)
-                              (librera-sync--fb2-reader-debug-message
+                              (librera-sync--fb2-reader-mode-debug-message
                                '(word char)
                                "Multiple hyphens ended; cw: %s; chr %s; l ns %s"
                                curr-word curr-chars curr-lines))
@@ -205,7 +245,7 @@
                            curr-chars (+ (* curr-lengthstep curr-lineprefix)
                                          curr-word)
                            curr-word 0)
-                     (librera-sync--fb2-reader-debug-message
+                     (librera-sync--fb2-reader-mode-debug-message
                       '(word char)
                       "word ended; cw: %s; chr %s; l ns %s"
                       curr-word curr-chars curr-lines))
@@ -222,7 +262,7 @@
              (unless (or (= curr-lines 0)
                          (<= maxlines (+ curr-heightstep curr-lines)))
                (setq curr-lines (+ curr-heightstep curr-lines))
-               (librera-sync--fb2-reader-debug-message
+               (librera-sync--fb2-reader-mode-debug-message
                 '(word char) "empty line; cw: %s; chr %s; lns %s"
                 curr-word curr-chars curr-lines)
                ))
@@ -242,7 +282,7 @@
                                               curr-word)
                                 curr-word 1
                                 hyphen-flag 't)
-                          (librera-sync--fb2-reader-debug-message
+                          (librera-sync--fb2-reader-mode-debug-message
                            '(word)
                            "hyphen; cw: %s; chr %s; lns %s"
                            curr-word curr-chars curr-lines))
@@ -252,43 +292,120 @@
             (;any character inside tag except space and newline
              (and curr-tags (not (or (= curr-char 10) (= curr-char 32))))
              (setq curr-word (+ curr-lengthstep curr-word))
-             (librera-sync--fb2-reader-debug-message
+             (librera-sync--fb2-reader-mode-debug-message
               '(char)
               "curr lengthcoeff: %s; word: %s; chars %s; lines %s"
-              curr-lengthstep curr-word curr-chars curr-lines)
-             ))
+              curr-lengthstep curr-word curr-chars curr-lines)))
       (forward-char)
       (unless (char-after)
         (setq curr-lines (1+ maxlines))))
     ;; (backward-char)
-    (if librera-sync-fb2-reader-debug (message "Chars before: %s; Lines before: %s" curr-chars curr-lines)
+    (if librera-sync-fb2-reader-mode-debug (message "Chars before: %s; Lines before: %s" curr-chars curr-lines)
       (cons (1+ curr-chars) (- curr-lines maxlines)))))
 
-(defun librera-sync-fb2-reader-pages ()
-  (beginning-of-buffer)
-  (let* ((chars-before 0)
-         (lines-before 0)
-         (page-num 1)
-         (pages (list (cons page-num (point)))))
-    (while (char-after)
-      (setq before (librera-sync-fb2-reader-skip-page chars-before lines-before)
-            chars-before (car before)
-            lines-before (cdr before)
-            page-num (1+ page-num))
-      (save-excursion
-        (backward-char chars-before)
-        (push (cons page-num (point)) pages))
-      )
-    (message "pages: %s" page-num)
-    (reverse pages)))
+(defun librera-sync-fb2-reader-mode-create-index ()
+  "Return list with points of the every page's start."
+  (save-excursion
+    (goto-char (point-min))
+    (let* ((chars-before 0)
+           (lines-before 0)
+           (pages (list (point)))
+           before)
+      (while (char-after)
+        (setq before (librera-sync-fb2-reader-mode--skip-page chars-before lines-before)
+              chars-before (car before)
+              lines-before (cdr before))
+        (save-excursion
+          (backward-char chars-before)
+          (push (point) pages)))
+      ;; Delete last entry (every index entry is number of the page
+      ;; and place where it starts, so last one will point to the end
+      ;; of the last page, which is unwanted)
+      (reverse pages))))
 
+(defun librera-sync-fb2-reader-mode--indexes ()
+  "Read index from cache."
+  (if (f-exists-p (librera-sync-fb2-reader-mode-index-file))
+      (with-temp-buffer
+        (insert-file-contents (librera-sync-fb2-reader-mode-index-file))
+        (goto-char (point-min))
+        (read (current-buffer)))))
 
-;; (setq-local librera-pages (librera-sync-fb2-reader-pages))
-;; (goto-char (alist-get 49 librera-pages))
-;; all ok till 164 and became worse to 168
-;; 200-201 - just started issue
-;; 675-677 anomaly
-;; 679-680 - one line missing - anomaly at 678 th page
-;; 705-706 - missing page
+(defun librera-sync-fb2-reader-mode--write-indexes (indexes)
+  "Write INDEXES to the cache."
+  (with-temp-file (librera-sync-fb2-reader-mode-index-file)
+    (set-buffer-file-coding-system 'utf-8)
+    (insert ";; librera-sync-fb2-reader-mode.el -- sync position in fb2-reader-mode buffer with Librera Reader ")
+    (insert "Don't edit this file manually!\n")
+    (insert "\n")
+    (insert (prin1-to-string indexes))))
 
-;;; librera-sync-fb2-reader.el ends here
+(defun librera-sync-fb2-reader-mode-update-index (filename index)
+  "Save INDEX for book FILENAME."
+  (let ((indexes (remove filename (librera-sync-fb2-reader-mode--indexes)))
+        (index-entry (list fb2-reader-file-name
+                           (cons 'mtime (current-time))
+                           (cons 'index index))))
+    (push index-entry indexes)
+    (librera-sync-fb2-reader-mode--write-indexes indexes)))
+
+(defun librera-sync-fb2-reader-mode-load-index-actual (filename)
+  "Load index for FILENAME if index is actual, return nil otherwise."
+  (let* ((index-entry (alist-get filename (librera-sync-fb2-reader-mode--indexes) nil nil 'equal))
+         (index-time (alist-get 'mtime index-entry))
+         (fb2-reader-cache-time (fb2-reader-cache-creation-time filename)))
+    (if (time-less-p fb2-reader-cache-time index-time)
+        (alist-get 'index index-entry))))
+
+(defun librera-sync-fb2-reader-mode--save-pos-maybe ()
+  "Save position if visible area changed."
+  (save-excursion
+    (move-to-window-line 0)
+    (when (not (eq librera-sync-fb2-reader-mode--curr-pos (point)))
+      (setq librera-sync-fb2-reader-mode--curr-pos (point))
+      (librera-sync-save))))
+
+(defun librera-sync-fb2-reader-mode-prepare ()
+  "Add librera advice to doc-view."
+  (if-let ((index (librera-sync-fb2-reader-mode-load-index-actual fb2-reader-file-name)))
+      (setq librera-sync-fb2-reader-mode-index index)
+    (setq librera-sync-fb2-reader-mode-index (librera-sync-fb2-reader-mode-create-index))
+    (librera-sync-fb2-reader-mode-update-index fb2-reader-file-name librera-sync-fb2-reader-mode-index))
+  (add-hook 'post-command-hook #'librera-sync-fb2-reader-mode--save-pos-maybe nil 't))
+
+(defun librera-sync-fb2-reader-mode-clean ()
+  "Add librera advice to doc-view."
+  (remove-hook 'post-command-hook #'librera-sync-fb2-reader-mode--save-pos-maybe 't))
+
+(defun librera-sync-fb2-reader-mode-set-pos (position)
+  "Set POSITION in doc-view buffer."
+  (let* ((page-num (round (* position (length librera-sync-fb2-reader-mode-index))))
+         (page-start (nth page-num librera-sync-fb2-reader-mode-index))
+         (page-end (or (nth (1+ page-num) librera-sync-fb2-reader-mode-index) (window-end))))
+    (goto-char page-start)
+    (recenter-top-bottom 'top)
+    (when librera-sync-fb2-reader-mode-highlight-page
+      (pulse-momentary-highlight-region page-start page-end))))
+
+(defun librera-sync-fb2-reader-mode-current-pos ()
+  "Get current position in `fb2-reader-mode' buffer."
+  (let* ((start-idx 0)
+         (end-idx (length librera-sync-fb2-reader-mode-index))
+         (curr-pos (point))
+         middle-idx
+         middle-item)
+    (while (> (- end-idx start-idx) 1)
+      (setq middle-idx (+ start-idx (/ (- end-idx start-idx) 2))
+            middle-item (nth middle-idx librera-sync-fb2-reader-mode-index))
+      (if (> curr-pos middle-item)
+          (setq start-idx middle-idx)
+        (setq end-idx middle-idx)))
+    (/ (float start-idx) (length librera-sync-fb2-reader-mode-index))))
+
+(defun librera-sync-fb2-reader-mode-book-name ()
+  "Get current book name."
+  (f-filename fb2-reader-file-name))
+
+(provide 'librera-sync-fb2-reader-mode)
+
+;;; librera-sync-fb2-reader-mode.el ends here
