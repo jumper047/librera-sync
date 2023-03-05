@@ -44,6 +44,7 @@
 (require 'filenotify)
 (require 'librera-sync-pdf-view)
 (require 'librera-sync-doc-view)
+(require 'librera-sync-fb2-reader-mode)
 
 (defgroup librera-sync nil
   "A group for librera-sync related customizations"
@@ -89,7 +90,8 @@ Ignored if whitelist is not empty"
   :type '(repeat string))
 
 (defvar librera-sync-supported-modes '(pdf-view-mode
-                                       doc-view-mode)
+                                       doc-view-mode
+                                       fb2-reader-mode)
   "Major modes supported by librera.")
 
 (defvar librera-sync-timer nil
