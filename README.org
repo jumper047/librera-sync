@@ -9,15 +9,16 @@ Position can be synced across multiple Emacs and Librera instances.
 - doc-view
 - pdf-tools
 
-*Work in progress:*
+*Experimental:*
 - fb2-mode
 
 /Sadly, epub support will not be implemented in foreseeing future because of Librera's way to store position as a percent of book's length. It works fine if document has predefined pages, but in epub book's length and text's proportions strongly depends on rendering engine so same precent in Librera and nov, for example, points to different positions./
 
-* Synchronization setup
+* Set up
+** Preparations
   - Install Librera Reader to your Android smartphone/tablet here - [[http://librera.mobi/#download]]. You can skip this step if you want just sync position across Emacs instances
-* Package installation
   - Set up file synchronization tool ([[https://syncthing.net/][Syncthing]] for example)  to sync Librera folders across all your devices. If you installed Librera from Google Play you also can use Google Drive for synchronization as described here - https://librera.mobi/faq/setting-up-synchronization/
+** Package installation
   Easiest way is to install librera-sync from Melpa - ensure you setted up repository and just do =M-x package-install librera-sync=. You should point package to directory containing Librera profiles data, and enable global mode. Plain lisp config example:
    #+begin_src emacs-lisp
      (require 'librera-sync)
@@ -32,6 +33,19 @@ Use-package:
     :config
     (global-librera-sync-mode 1))
 #+end_src
+
+** Syncing fb2 books
+At this moment synchronization of fb2 books works not very good. Librera reader stores current position as float equals to the "completed pages" / "all pages". =librera-sync= tries to virtually split book to pages the same way as Librera Reader. At this moment, to make it work these changes should be made in Librera Reader settings:
+- Set font with monotonic width (tested with DroidSansMono)
+- Disable hyphenation
+After that, open any book and count the rows (you should find page filled with regular text, without titles, pictures, etc), and then found a row with as less spaces as possible and count symbols in the row, including spaces.
+Set these parameters in your config:
+#+begin_src emacs-lisp
+(setq librera-sync-fb2-reader-mode-page-width 27
+      librera-sync-fb2-reader-mode-page-height 27)
+#+end_src
+After that, sync should work relatively good for simple books without pictures.
+Feature still work in progress - for now I'm planning to add support for hyphenation, pictures, and maybe for non-monotonic fonts.
 
 * Usage
   Document's position will be automatically updated when librera-sync-mode will be active. Also it is possible to load latest position manually with function =librera-sync-load=. In case when needed page from certain device    =librera-sync-load-from-device= function can be used.
