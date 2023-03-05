@@ -55,6 +55,11 @@
   :type '(directory)
   :group 'librera-sync)
 
+(defcustom librera-sync-cache-directory (expand-file-name "librera-sync" user-emacs-directory)
+  "Path to temp directory used by librera plugins."
+  :type '(directory)
+  :group 'librera-sync)
+
 (defcustom librera-sync-device-name (system-name)
   "Device name (should be unique across Librera instances)."
   :type '(string)
@@ -134,12 +139,15 @@ Ignored if whitelist is not empty"
   "Get time in format used by Librera."
   (round (* 1000 (float-time))))
 
+(defun librera-sync-ensure-dir (dir)
+  "Create DIR if necessary."
+  (unless (f-exists-p dir)
+    (make-directory dir)))
 
 (defun librera-sync--write-pos (position docname)
   "Save DOCNAME's POSITION to Librera."
   ;; Create directory and empty json file if there is noone already
-  (if (not (f-exists? (librera-sync--curr-device-dir)))
-      (make-directory (librera-sync--curr-device-dir)))
+  (librera-sync-ensure-dir (librera-sync--curr-device-dir))
 
   (let ((json-array-type 'list)
         (json-key-type 'string)
@@ -203,7 +211,6 @@ Returns hash table with list '(POSITION TIME FILE)"
                     (time (car (cdr trbufval)))
                     (fresh (< time ntime)))
           (puthash trbuf (list npos ntime devname) positions))))))
-  
 
 (defun librera-sync--read-pos-for (docname &optional devname)
   "Get position for certain DOCNAME.
@@ -376,7 +383,8 @@ ARGS will be passed to function"
   :lighter " LS"
   :group 'librera-sync
   (if librera-sync-mode
-      (progn (cond ((and (eq librera-sync-update-method 'inotify)
+      (progn (librera-sync-ensure-dir librera-sync-cache-directory)
+             (cond ((and (eq librera-sync-update-method 'inotify)
                          (not librera-sync-watchers))
                     (librera-sync--start-watching))
                    ((and (eq librera-sync-update-method 'timer)
