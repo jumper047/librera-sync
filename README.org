@@ -16,8 +16,8 @@ Position can be synced across multiple Emacs and Librera instances.
 
 * Synchronization setup
   - Install Librera Reader to your Android smartphone/tablet here - [[http://librera.mobi/#download]]. You can skip this step if you want just sync position across Emacs instances
-  - Set up file synchronization tool ([[https://syncthing.net/][Syncthing]] for example)  to sync Librera folders across all your devices. If you installed Librera from Google Play you also can use Google Drive for synchronization as described here - [[https://librera.mobi/wiki/faq/setting-up-synchronization/]].
 * Package installation
+  - Set up file synchronization tool ([[https://syncthing.net/][Syncthing]] for example)  to sync Librera folders across all your devices. If you installed Librera from Google Play you also can use Google Drive for synchronization as described here - https://librera.mobi/faq/setting-up-synchronization/
   Easiest way is to install librera-sync from Melpa - ensure you setted up repository and just do =M-x package-install librera-sync=. You should point package to directory containing Librera profiles data, and enable global mode. Plain lisp config example:
    #+begin_src emacs-lisp
      (require 'librera-sync)
