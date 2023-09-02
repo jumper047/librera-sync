@@ -382,7 +382,7 @@ ARGS will be passed to function"
 
 ;;;###autoload
 (define-minor-mode librera-sync-mode
-  "Sync current buffer with Librera Reader"
+  "Sync current buffer with Librera Reader."
   :lighter " LS"
   :group 'librera-sync
   (if librera-sync-mode
