@@ -56,7 +56,11 @@
 (defun librera-sync-pdf-view-mode-book-name ()
   "Get current book name."
   (f-filename (buffer-file-name)))
- 
+
+(defun librera-sync-pdf-view-mode-book-path ()
+  "Get path to current document."
+  (buffer-file-name))
+
 (provide 'librera-sync-pdf-view)
 
 ;;; librera-sync-pdf-view.el ends here

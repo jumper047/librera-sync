@@ -406,6 +406,10 @@ MESS is the message, FORMATTERS are formatters as for `format' command."
   "Get current book name."
   (f-filename fb2-reader-file-name))
 
+(defun librera-sync-fb2-reader-mode-book-path ()
+  "Get path to current book."
+  nil)
+
 (provide 'librera-sync-fb2-reader-mode)
 
 ;;; librera-sync-fb2-reader-mode.el ends here

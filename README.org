@@ -49,3 +49,5 @@ Feature still work in progress - for now I'm planning to add support for hyphena
 
 * Usage
   Document's position will be automatically updated when librera-sync-mode will be active. Also it is possible to load latest position manually with function =librera-sync-load=. In case when needed page from certain device    =librera-sync-load-from-device= function can be used.
+
+  Librera Reader has simple books sync mechanics (three dots on book -> sync in Android app), which copies book to subfolder Books in shared folder. Librera-sync has two convenient functions to work with these books: =librera-sync-sync-book= will copy current book to this storage, and =librera-sync-open-synced-book= will start "Find file" dialogue inside that folder.

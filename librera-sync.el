@@ -110,6 +110,12 @@ Ignored if whitelist is not empty"
 (defvar librera-sync--update-source nil
   "Buffer-local variable stores source of new position for current buffer.")
 
+(defun librera-sync--books-dir ()
+  "Get path to directory with synced books."
+  (unless librera-sync-directory
+    (error "Librera directory not set"))
+  (f-join librera-sync-directory "Books/"))
+
 (defun librera-sync--device-names ()
   "Get list of available device names."
   (unless librera-sync-directory
@@ -331,6 +337,10 @@ ARGS will be passed to function"
   "Return book name used in librera config."
   (librera-sync--major-mode-command "book-name"))
 
+(defun librera-sync--book-path ()
+  "Return path to the book in current buffer."
+  (librera-sync--major-mode-command "book-path"))
+
 (defun librera-sync-track-current-buffer ()
   "Save current buffer values and update if necessary."
   (if (member (librera-sync--book-name) librera-sync-tracked-filenames)
@@ -379,6 +389,27 @@ ARGS will be passed to function"
     (if pos-params
         (librera-sync--set-pos (car pos-params))
       (message "There is no progress for %S at this device" (librera-sync--book-name)))))
+
+;;;###autoload
+(defun librera-sync-sync-book ()
+  "Sync current book to shared Books folder."
+  (interactive)
+  (let ((books-dir (librera-sync--books-dir))
+        (book-path (librera-sync--book-path)))
+    (unless book-path
+      (user-error "Can't sync this file type!"))
+    (librera-sync-ensure-dir books-dir)
+    (f-copy book-path books-dir)))
+
+;;;###autoload
+(defun librera-sync-open-synced-book ()
+  "Open synced book from shared Books folder."
+  (interactive)
+  (let* ((books-dir (librera-sync--books-dir))
+         (default-directory books-dir))
+    (if (f-exists-p books-dir)
+        (call-interactively 'find-file)
+      (message "There is no synced books!"))))
 
 ;;;###autoload
 (define-minor-mode librera-sync-mode
